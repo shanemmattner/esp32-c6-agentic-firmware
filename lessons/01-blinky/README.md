@@ -92,36 +92,52 @@ codegen-units = 1
 - `lto = true` - Link-time optimization (reduces size more)
 - `codegen-units = 1` - Single compilation unit (better optimization)
 
-### Step 3: Create `rust-toolchain.toml`
+### Step 3: Create `.cargo/config.toml`
 
-In the project root, create `rust-toolchain.toml`:
+Create a `.cargo` directory, then create `config.toml` inside it:
 
 ```toml
-[toolchain]
-channel = "stable"
-components = ["rustfmt", "clippy"]
-targets = ["riscv32imac-unknown-none-elf"]
+[build]
+target = "riscv32imac-unknown-none-elf"
+
+[alias]
+# Build release binary
+br = "build --release"
+
+# Check code without building (fast syntax check)
+ck = "check"
+
+# Build and flash to ESP32-C6
+ff = "run --release"
+
+# Just build, then show size
+sz = "build --release"
 ```
 
-#### Understanding rust-toolchain.toml
+#### Understanding .cargo/config.toml
 
-This file tells Rust which version and components to use for this project.
+This file configures cargo for your ESP32 project.
 
-**[toolchain] Section** - Configure Rust toolchain
-- `channel = "stable"` - Use the stable release channel (not nightly)
-- `components = ["rustfmt", "clippy"]`
-  - `rustfmt` - Code formatter (keeps code style consistent)
-  - `clippy` - Linter (warns about code issues)
-- `targets = ["riscv32imac-unknown-none-elf"]`
-  - The CPU architecture for ESP32-C6
+**[build] Section** - Build configuration
+- `target = "riscv32imac-unknown-none-elf"` - Default CPU architecture
   - RISC-V instruction set
   - 32-bit, with multiply/divide/atomics/compressed
   - `elf` = bare-metal (no operating system)
+  - **Why**: Saves typing `--target` every build
 
-**Why this file?**
-- Ensures everyone uses the same Rust version
-- Automatical downloads correct tools
-- Prevents "works on my machine" problems
+**[alias] Section** - Custom cargo shortcuts
+
+| Alias | Full Command | Use Case |
+|-------|--------------|----------|
+| `cargo br` | `build --release` | Quick release build |
+| `cargo ck` | `check` | Fast syntax check (no build) |
+| `cargo ff` | `run --release` | Build + flash to board |
+| `cargo sz` | `build --release` | Build for size inspection |
+
+**Why custom aliases?**
+- Less typing = faster iteration
+- Consistent commands across team
+- Easy to remember (br = build release, ff = flash firmware)
 
 ### Step 4: Write the Code
 
@@ -130,20 +146,23 @@ Replace `src/main.rs` with the code in this lesson.
 ### Step 5: Build
 
 ```bash
-cargo build --release
+# Using the alias we created
+cargo br
 ```
+
+This builds an optimized release binary.
 
 ### Step 6: Flash to ESP32-C6
 
 ```bash
-cargo run --release
+# Using the alias we created (builds and flashes)
+cargo ff
 ```
 
-Or manually with espflash:
-
-```bash
-espflash flash --port /dev/cu.usbserial-10 target/riscv32imac-unknown-none-elf/release/blinky
-```
+This will:
+1. Build the release binary
+2. Flash it to the ESP32-C6 on `/dev/cu.usbserial-10`
+3. Start the serial monitor automatically
 
 ### Step 7: Monitor Serial Output
 
