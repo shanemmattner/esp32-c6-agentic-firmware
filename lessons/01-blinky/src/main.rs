@@ -45,6 +45,9 @@ fn main() -> ! {
     // Step 1: Initialize logging
     // This must be done first so we can see debug output
     esp_println::logger::init_logger_from_env();
+    // Ensure INFO level logging is enabled (default if env var not set)
+    log::set_max_level(log::LevelFilter::Info);
+
     info!("🚀 Starting Blinky (Lesson 01)");
 
     // Step 2: Initialize the hardware abstraction layer
