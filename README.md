@@ -1,196 +1,223 @@
 # ESP32-C6 Agentic Firmware Development
+### Exploring esp-hal 1.0.0 + Claude Code Workflows
 
 ![ESP32-C6](https://img.shields.io/badge/ESP32--C6-Rust-orange)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![esp-hal](https://img.shields.io/badge/esp--hal-1.0.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-## 🚀 Overview
+## 🚀 Mission
 
-This repository demonstrates **agentic template-based firmware development** for the ESP32-C6 microcontroller using Rust and Claude Code. It's designed to showcase LLM-driven development workflows with comprehensive logging, test-driven development, and reusable patterns.
+This repository demonstrates **modern embedded Rust development** using the **new esp-hal 1.0.0** (released October 2024) combined with **Claude Code agentic workflows**. This is the first officially supported, bare-metal Rust HAL for ESP32 chips backed by Espressif.
 
-### Key Features
-- ✅ **Progressive Tutorial Structure** - Learn ESP32-C6 Rust development step-by-step
-- ✅ **Claude Code Integration** - Slash commands, custom workflows, and AI-assisted development
-- ✅ **Template-Based Patterns** - Reusable code patterns for common embedded tasks
-- ✅ **Comprehensive Logging** - Debug and verify firmware behavior through extensive logging
-- ✅ **Test-Driven Development** - Tests for embedded Rust (unit, integration, HIL)
-- ✅ **Modern Rust Ecosystem** - Latest Rust embedded libraries and best practices
+### Why esp-hal 1.0.0?
+
+**esp-hal 1.0.0** is a game-changer for ESP32 Rust development:
+- ✨ **Pure Rust** - No C dependencies, no ESP-IDF required
+- 🎯 **Official Support** - Backed by Espressif with paid developer time
+- 🔥 **Modern Patterns** - Implements embedded-hal 1.0 traits properly
+- ⚡ **Bare Metal** - Direct hardware access, smaller binaries, faster execution
+- 🆕 **Latest Features** - Built for Rust's newest embedded ecosystem
+
+**vs. Old Approach (esp-idf-hal):**
+| Feature | esp-hal 1.0.0 (NEW) | esp-idf-hal (OLD) |
+|---------|---------------------|-------------------|
+| Architecture | Pure Rust, bare-metal | C wrapper (ESP-IDF) |
+| Official Support | ✅ Espressif-backed | Community-maintained |
+| Dependencies | Minimal | Requires ESP-IDF install |
+| Binary Size | Smaller | Larger |
+| Learning Curve | Modern Rust patterns | ESP-IDF + Rust hybrid |
+| Future | Active development | Legacy path |
+
+## 🎯 Goals
+
+1. **Explore esp-hal 1.0.0** - Document new features, patterns, and capabilities
+2. **Claude Code Workflows** - Build agentic templates for firmware generation
+3. **Tutorial Series** - Progressive lessons from blinky to complex systems
+4. **YouTube Content** - Video series on LLM-driven embedded development
 
 ## 📚 Tutorial Structure
 
-Each lesson is a self-contained project with its own documentation, build configuration, and learning objectives.
+Each lesson demonstrates **esp-hal 1.0.0** features with comprehensive Claude Code integration:
 
-### Lessons
+### Foundations (esp-hal 1.0.0 Basics)
+- **[✅ 01-blinky](./lessons/01-blinky/)** - GPIO output, `Delay`, logging patterns
+- **02-button-input** - GPIO input, interrupts, `Io` peripheral
+- **03-state-machine** - Async state machines with `embassy-executor`
 
-#### Foundations
-- **[01-blinky](./lessons/01-blinky/)** - GPIO output, basic firmware structure, logging
-- **02-button-input** *(Coming Soon)* - GPIO input, interrupts, debouncing
-- **03-state-machine** *(Coming Soon)* - Finite state machines, traffic light example
+### Peripherals (esp-hal 1.0.0 Drivers)
+- **04-i2c-sensor** - I2C with embedded-hal 1.0 traits
+- **05-spi-display** - SPI with DMA support
+- **06-uart-shell** - UART communication, CLI interface
 
-#### Peripherals
-- **04-i2c-sensor** *(Coming Soon)* - I2C protocol, sensor drivers (BME280)
-- **05-spi-display** *(Coming Soon)* - SPI communication, display control
-- **06-uart-shell** *(Coming Soon)* - Serial communication, CLI interface
+### Advanced (esp-hal 1.0.0 Features)
+- **07-async-embassy** - Embassy async runtime integration
+- **08-wifi-basics** - WiFi with esp-wifi 1.0 (bare-metal stack!)
+- **09-dma-advanced** - Direct Memory Access patterns
+- **10-low-power** - LP core and sleep modes
 
-#### Advanced Topics
-- **07-async-tasks** *(Coming Soon)* - Embassy async runtime, concurrent tasks
-- **08-wifi-basics** *(Coming Soon)* - WiFi connectivity, network protocols
-- **09-ota-updates** *(Coming Soon)* - Over-the-air firmware updates
-- **10-sensor-fusion** *(Coming Soon)* - Multiple sensors, data processing
+## 🤖 Claude Code Integration
+
+### Slash Commands (Coming Soon)
+```bash
+/hal-driver <peripheral>    # Generate esp-hal 1.0.0 driver template
+/add-logging <granularity>  # Add comprehensive logging
+/create-test <component>    # Generate embedded test scaffold
+/async-task <description>   # Create embassy async task
+```
+
+### Agentic Templates
+- **Driver Templates** - I2C, SPI, UART with esp-hal 1.0.0 patterns
+- **State Machines** - Embassy async state patterns
+- **Error Handling** - Result types, panic handlers, logging
+- **Test Scaffolds** - Unit, integration, hardware-in-loop
+
+### Claude Code Workflows
+1. **PRD-Driven** - Generate Product Requirements Documents
+2. **Test-First** - Write tests, implement to pass
+3. **Feedback Loops** - Use logging for agentic verification
+4. **Template-Based** - Reusable patterns for common tasks
 
 ## 🛠️ Getting Started
 
 ### Prerequisites
 
-1. **Install Rust and ESP Toolchain**
-   ```bash
-   # Install Rust
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```bash
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-   # Install ESP Rust toolchain
-   cargo install espup
-   espup install
-   source $HOME/export-esp.sh
-   ```
+# Add RISC-V target (ESP32-C6)
+rustup target add riscv32imac-unknown-none-elf
 
-2. **Install Flashing Tools**
-   ```bash
-   cargo install espflash
-   cargo install cargo-espflash
-   ```
-
-3. **Clone This Repository**
-   ```bash
-   git clone https://github.com/shanemmattner/esp32-c6-agentic-firmware.git
-   cd esp32-c6-agentic-firmware
-   ```
+# Install flashing tools
+cargo install espflash
+```
 
 ### Quick Start
 
-1. Navigate to a lesson:
-   ```bash
-   cd lessons/01-blinky
-   ```
-
-2. Build the project:
-   ```bash
-   cargo build --release
-   ```
-
-3. Flash to your ESP32-C6:
-   ```bash
-   cargo run --release
-   # Or specify port manually:
-   espflash flash target/riscv32imc-esp-espidf/release/blinky --port /dev/cu.usbserial-10
-   ```
-
-4. Monitor serial output:
-   ```bash
-   espflash monitor /dev/cu.usbserial-10
-   ```
-
-## 🤖 Claude Code Integration
-
-This repository is designed to demonstrate best practices for LLM-driven embedded development.
-
-### Slash Commands *(Coming Soon)*
-- `/generate-driver` - Generate I2C/SPI/UART driver templates
-- `/add-logging` - Automatically add comprehensive logging to code
-- `/create-test` - Generate test scaffolding for embedded tests
-- `/prd` - Create Product Requirements Document
-- `/erd` - Generate Entity Relationship Diagrams
-
-### Claude Code Configuration
-The `.claude/` directory contains:
-- **Project context** - System architecture, coding standards
-- **Custom commands** - Firmware-specific development workflows
-- **Templates** - Reusable code patterns for common tasks
-
-## 📝 Development Workflow
-
-### 1. Planning Phase
-- Create PRD (Product Requirements Document)
-- Design ERD (Entity Relationship Diagram) if applicable
-- Define acceptance criteria
-
-### 2. Test-Driven Development
-- Write tests first (unit, integration, hardware-in-loop)
-- Implement features to pass tests
-- Verify with comprehensive logging
-
-### 3. Implementation
-- Use template patterns from previous lessons
-- Add extensive logging at key points
-- Document decisions and tradeoffs
-
-### 4. Verification
-- Run tests (unit, integration, on-device)
-- Monitor serial logs for expected behavior
-- Iterate based on feedback
-
-## 🔬 Testing Strategy
-
-### Unit Tests
-Run on host machine, mock hardware:
 ```bash
-cargo test
+git clone https://github.com/shanemmattner/esp32-c6-agentic-firmware.git
+cd esp32-c6-agentic-firmware/lessons/01-blinky
+cargo build --release
+cargo run --release  # Flash to ESP32-C6
 ```
 
-### Integration Tests
-Run on actual ESP32-C6 hardware:
-```bash
-cargo test --features integration
+See [QUICKSTART.md](./QUICKSTART.md) for detailed instructions.
+
+## 🔥 esp-hal 1.0.0 Highlights
+
+### What's New in 1.0.0?
+
+**Core Features:**
+- ✅ **Stable API** - Breaking changes only in major versions
+- ✅ **embedded-hal 1.0** - Standard traits for portability
+- ✅ **Embassy Integration** - First-class async/await support
+- ✅ **DMA Support** - Direct memory access for all peripherals
+- ✅ **Type-Safe GPIO** - Compile-time pin validation
+- ✅ **RMT Peripheral** - For addressable LEDs, IR, etc.
+
+**Example: Modern GPIO Pattern**
+```rust
+#[main]
+fn main() -> ! {
+    let peripherals = esp_hal::init(esp_hal::Config::default());
+    let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
+    let delay = Delay::new();
+
+    loop {
+        led.toggle();
+        delay.delay_millis(1000);
+    }
+}
 ```
 
-### Hardware-in-Loop (HIL)
-Automated tests with connected sensors/peripherals:
-```bash
-cargo test --features hil
-```
+**No ESP-IDF, no C code, pure Rust!** 🦀
 
 ## 📖 Documentation
 
-Each lesson includes:
-- **README.md** - Overview, learning objectives, instructions
-- **PRD.md** *(where applicable)* - Requirements and specifications
-- **Code comments** - Inline explanations and reasoning
-- **Logging output** - Expected serial monitor messages
+- **[QUICKSTART.md](./QUICKSTART.md)** - Build and flash guide
+- **[esp-hal 1.0.0 Docs](https://docs.esp-rs.org/esp-hal/)** - Official HAL docs
+- **[Examples](./submodules/esp-hal/examples/)** - Reference implementations
+- **[Rust ESP Book](https://docs.esp-rs.org/book/)** - Comprehensive guide
 
-## 🎯 Target Audience
+## 🎓 Learning Resources
 
-- **Rust Beginners** interested in embedded systems
-- **Embedded Developers** exploring Rust
-- **AI/LLM Enthusiasts** learning prompt engineering for code
-- **Educators** teaching embedded Rust development
+### esp-hal 1.0.0 Specific
+- [esp-hal 1.0.0 Release Announcement](https://developer.espressif.com/blog/2025/10/esp-hal-1/)
+- [Migration from esp-idf-hal](https://docs.esp-rs.org/book/writing-your-own-application/nostd.html)
+- [embedded-hal 1.0 Traits](https://docs.rs/embedded-hal/1.0.0/)
+
+### Claude Code + Embedded
+- Agentic firmware development patterns
+- Template-based code generation
+- Logging-driven verification
+- Test-driven embedded development
+
+## 🧪 Development Workflow
+
+### 1. Plan with PRD
+Use Claude Code to generate Product Requirements Documents:
+```
+What: Add BME280 temperature sensor driver
+Why: Environmental monitoring
+How: I2C with embedded-hal 1.0 traits
+Success: Reads temp every 1s, logs values
+```
+
+### 2. Test-First Development
+```rust
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_bme280_read() {
+        // Write test first
+        assert_eq!(sensor.read_temperature(), Ok(25.0));
+    }
+}
+```
+
+### 3. Implement with esp-hal 1.0.0
+```rust
+let i2c = I2c::new(peripherals.I2C0, sda, scl, Config::default());
+let mut sensor = Bme280::new(i2c);
+let temp = sensor.read_temperature()?;
+```
+
+### 4. Verify with Logging
+```rust
+info!("BME280 initialized successfully");
+info!("Temperature: {:.2}°C", temp);
+```
 
 ## 🤝 Contributing
 
-Contributions are welcome! This project is designed for learning and experimentation.
+This is a learning and demonstration repository. Contributions welcome!
+
+Focus areas:
+- New esp-hal 1.0.0 examples
+- Claude Code slash commands
+- Template improvements
+- Documentation
 
 ## 📄 License
 
-This project is licensed under the MIT License - see LICENSE file for details.
+MIT OR Apache-2.0
 
 ## 🙏 Acknowledgments
 
-- [esp-rs](https://github.com/esp-rs) - Rust on ESP community
-- [Espressif](https://www.espressif.com/) - ESP32-C6 hardware
-- [Anthropic](https://www.anthropic.com/) - Claude Code AI assistant
+- **[esp-rs Team](https://github.com/esp-rs)** - esp-hal 1.0.0 development
+- **[Espressif](https://www.espressif.com/)** - Official support for Rust
+- **[Anthropic](https://www.anthropic.com/)** - Claude Code AI assistant
+- **[Rust Embedded Working Group](https://github.com/rust-embedded)** - embedded-hal 1.0
 
-## 📺 YouTube Series *(Coming Soon)*
+## 📺 YouTube Series (Planned)
 
-This repository will be featured in an upcoming YouTube series on:
-- Agentic firmware development
-- LLM-driven embedded development
-- Modern Rust embedded patterns
-- ESP32-C6 development
-
-## 🔗 Resources
-
-- [ESP32-C6 Datasheet](https://www.espressif.com/sites/default/files/documentation/esp32-c6_datasheet_en.pdf)
-- [esp-idf-svc Documentation](https://docs.esp-rs.org/esp-idf-svc/)
-- [Rust Embedded Book](https://rust-embedded.github.io/book/)
-- [Claude Code Documentation](https://docs.claude.com/claude-code)
+Topics:
+1. **Why esp-hal 1.0.0?** - Modern vs legacy approaches
+2. **Blinky Deep Dive** - Understanding the new patterns
+3. **Async with Embassy** - Modern concurrency
+4. **WiFi Bare-Metal** - esp-wifi without ESP-IDF
+5. **Claude Code Workflows** - Agentic firmware development
 
 ---
 
-**Happy Coding!** 🦀✨
+**Built with esp-hal 1.0.0 🦀 | Powered by Claude Code 🤖**
