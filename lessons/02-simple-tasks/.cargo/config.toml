@@ -1,0 +1,19 @@
+[target.riscv32imac-unknown-none-elf]
+runner = "espflash flash --chip esp32c6"
+
+[env]
+
+[build]
+rustflags = [
+  "-C", "force-frame-pointers",
+]
+
+target = "riscv32imac-unknown-none-elf"
+
+[unstable]
+build-std = ["core"]
+
+[alias]
+br = "build --release"
+ck = "check"
+ff = "run --release"

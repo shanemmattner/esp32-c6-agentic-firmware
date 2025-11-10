@@ -1,12 +1,8 @@
 [package]
-edition      = "2021"
-name         = "lesson-01-blinky"
-rust-version = "1.88"
-version      = "0.1.0"
-
-[[bin]]
 name = "lesson-01-blinky"
-path = "./src/bin/main.rs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
 
 [dependencies]
 # Hardware abstraction layer - controls ESP32-C6 peripherals
