@@ -5,6 +5,41 @@ After evaluating the modern Rust embedded ecosystem, we've chosen a **simpler, m
 
 ---
 
+## 🌐 Remote Development Workflow
+
+**Hardware Setup:**
+```
+┌──────────────┐         ┌──────────────┐         ┌──────────────┐
+│   Laptop     │ SSH/USB  │ Raspberry Pi │  USB    │  ESP32-C6    │
+│ (Dev Machine)│ ────────>│ (Hardware    │ ──────> │  + Various   │
+│              │          │  Proxy)      │         │  Peripherals │
+└──────────────┘         └──────────────┘         └──────────────┘
+```
+
+**Why This Setup:**
+- ✅ **Remote Development**: Code from laptop, flash hardware remotely
+- ✅ **Persistent Hardware**: ESP32-C6 stays connected to peripherals
+- ✅ **Easy Testing**: Quick iteration without physical access to board
+- ✅ **Scalable**: Can connect multiple peripherals and sensors
+- ✅ **Real-World**: Mimics production deployment scenarios
+
+**Workflow:**
+1. Write code on laptop (with Claude Code)
+2. SSH to Raspberry Pi or use remote tooling
+3. Build and flash firmware to ESP32-C6 connected to Pi
+4. Monitor serial output remotely
+5. Test with peripherals (I2C sensors, SPI displays, etc.)
+
+**Tools Used:**
+- `espflash` for remote flashing over SSH
+- Serial monitoring over network
+- Remote debugging capabilities
+- GPIO/I2C/SPI peripherals connected to ESP32-C6
+
+This approach enables rapid driver development for various peripherals while maintaining a clean development environment.
+
+---
+
 ## 🎯 The Stack (Simplified)
 
 ```

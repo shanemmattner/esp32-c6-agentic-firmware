@@ -23,6 +23,13 @@ Demonstrate **modern embedded Rust development** using:
 - **ESP32-C6** (RISC-V, 8MB flash, WiFi 6, BT 5)
 - **Port**: /dev/cu.usbserial-10
 - **Status**: Firmware flashing successfully ✅
+- **Setup**: Connected to Raspberry Pi for remote development
+
+### Development Workflow
+- **Architecture**: Laptop → Raspberry Pi → ESP32-C6
+- **Remote Flashing**: Build and flash from laptop via RPi
+- **Peripheral Testing**: Various peripherals connected to ESP32-C6
+- **Driver Development**: Rapid iteration with remote access
 
 ### Lesson 01: Blinky
 - ✅ Builds with `cargo build --release`
