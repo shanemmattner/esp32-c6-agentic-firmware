@@ -153,10 +153,61 @@ pub fn toggle_led_enabled() {
 }
 ```
 
-**Why atomics?** Lock-free shared state perfect for embedded:
-- No mutexes needed (no `std::sync`)
-- Fast (single CPU instruction)
-- Safe (Rust compiler prevents data races)
+#### What is Lock-Free Shared State?
+
+**Lock-free** means multiple tasks can access shared data **without blocking each other** using locks/mutexes. Atomic operations guarantee that reads and writes happen as single, indivisible operations.
+
+**Example: What happens without atomics?**
+
+```rust
+// ❌ UNSAFE - Data race possible
+static mut LED_STATE: bool = false;
+
+// Task 1: Button task
+LED_STATE = !LED_STATE;  // Read, invert, write (3 steps)
+
+// Task 2: LED task
+if LED_STATE { ... }     // Read (might see partial update!)
+```
+
+**Problem:** If task 2 reads `LED_STATE` while task 1 is writing it, you get undefined behavior (data race).
+
+**Example: With atomics (our solution):**
+
+```rust
+// ✅ SAFE - Lock-free atomic operations
+static LED_ENABLED: AtomicBool = AtomicBool::new(false);
+
+// Task 1: Button task
+let current = LED_ENABLED.load(Ordering::Relaxed);  // Atomic read
+LED_ENABLED.store(!current, Ordering::Relaxed);     // Atomic write
+
+// Task 2: LED task
+let state = LED_ENABLED.load(Ordering::Relaxed);    // Atomic read
+if state { ... }
+```
+
+**Why This is Safe:**
+
+1. **Atomic guarantee:** Each `load()` and `store()` is a single CPU instruction - cannot be interrupted mid-operation
+2. **No partial updates:** Task 2 will always read either the old value OR the new value, never something in-between
+3. **No blocking:** Tasks never wait for locks - they just read/write immediately
+4. **Rust compile-time safety:** The compiler prevents direct access to the bool inside `AtomicBool`, forcing you to use safe atomic operations
+
+**Why Perfect for Embedded:**
+- **Fast:** Single instruction (vs mutex = interrupts disabled + context switching)
+- **No allocation:** Works in `no_std` environments (no heap needed)
+- **Predictable:** No deadlocks, no priority inversion
+- **Simple:** Just `load()` and `store()` - no lock/unlock dance
+
+**Memory Ordering (`Ordering::Relaxed`):**
+
+We use `Relaxed` ordering because:
+- Single-threaded scheduler (no true parallelism on single-core ESP32-C6)
+- No dependencies between atomic operations
+- Fastest option - no memory barriers needed
+
+For multi-core systems with complex dependencies, you'd use stricter orderings like `Acquire`/`Release`.
 
 ### 3. Button Task (button.rs)
 
