@@ -77,9 +77,9 @@ fn main() -> ! {
             led_on = !led_on;
 
             if led_on {
-                // Turn on (white)
-                led.write([RGB8::new(255, 255, 255)].into_iter()).unwrap();
-                info!("LED ON");
+                // Turn on (blue, dimmed)
+                led.write([RGB8::new(0, 0, 30)].into_iter()).unwrap();
+                info!("LED ON (blue)");
             } else {
                 // Turn off
                 led.write([RGB8::new(0, 0, 0)].into_iter()).unwrap();
