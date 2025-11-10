@@ -21,11 +21,14 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 # Add RISC-V target
 rustup target add riscv32imac-unknown-none-elf
 
+# Install probe-rs for debugging support
+cargo install probe-rs --locked
+
 # Install esp-generate (template generator)
 cargo install esp-generate --locked
 
 # Install flashing tool
-cargo install espflash
+cargo install espflash --locked
 ```
 
 ---
@@ -35,8 +38,8 @@ cargo install espflash
 ### Step 1: Generate Project with esp-generate
 
 ```bash
-# Generate a new project for ESP32-C6
-esp-generate --chip esp32c6 my-project
+# Generate a new project for ESP32-C6 with probe-rs support
+esp-generate --chip esp32c6 my-project -o probe-rs
 cd my-project
 ```
 
@@ -45,6 +48,7 @@ This creates a properly configured project with:
 - `build.rs` for linker configuration
 - `rust-toolchain.toml` with correct Rust version
 - All necessary dependencies
+- probe-rs configuration for hardware debugging
 
 ### Step 2: Update Dependencies (Optional)
 
@@ -220,11 +224,12 @@ Simple way to read a digital input pin.
 
 | Problem | Solution |
 |---------|----------|
-| Build fails | Make sure you ran `esp-generate --chip esp32c6` |
+| Build fails | Make sure you ran `esp-generate --chip esp32c6 my-project -o probe-rs` |
 | Can't flash | Check port: `ls /dev/cu.* \| grep serial` |
-| No serial output | Try `python3 scripts/monitor.py --port /dev/cu.usbserial-10` |
+| No serial output | Try `python3 ../../scripts/monitor.py --port /dev/cu.usbserial-10` |
 | Port in use | Check: `lsof /dev/cu.usbserial-10` and kill the process |
 | LED doesn't blink | Verify wiring to GPIO13, check power |
+| `probe-rs` not installed | Run `cargo install probe-rs --locked` |
 
 ---
 

@@ -1,100 +1,83 @@
-# ESP32-C6 Agentic Firmware - Quick Start Guide
+# Quick Start Guide
 
-## ✅ Status: WORKING!
+Get your first ESP32-C6 firmware running in 5 minutes.
 
-The blinky firmware successfully builds and flashes to ESP32-C6!
+## Prerequisites
 
-## Hardware Detected
-- **Chip**: ESP32-C6 v0.1
-- **Flash**: 8MB
-- **Features**: WiFi 6, BT 5
-- **MAC**: f0:f5:bd:01:88:2c
-- **Port**: /dev/cu.usbserial-10
-
-## Quick Commands
-
-### Build Firmware
 ```bash
-cd ~/Desktop/esp32-c6-agentic-firmware/lessons/01-blinky
+# Install Rust (if not already installed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Add RISC-V target for ESP32-C6
+rustup target add riscv32imac-unknown-none-elf
+
+# Install probe-rs for debugging
+cargo install probe-rs --locked
+
+# Install espflash for flashing
+cargo install espflash --locked
+
+# Install esp-generate for project templates
+cargo install esp-generate --locked
+```
+
+## Create Your First Project
+
+```bash
+# Generate a new ESP32-C6 project with probe-rs support
+esp-generate --chip esp32c6 my-project -o probe-rs
+
+cd my-project
+```
+
+## Build & Flash
+
+```bash
+# Build release firmware
 cargo build --release
-```
 
-### Flash to ESP32-C6
-```bash
+# Flash to ESP32-C6
 cargo run --release
-# OR manually specify port:
-espflash flash --monitor target/riscv32imac-unknown-none-elf/release/blinky --port /dev/cu.usbserial-10
 ```
 
-### Monitor Serial Output Only
+The binary will be compiled and automatically flashed to your connected ESP32-C6.
+
+## Use Lesson 01 as Template
+
+Or clone and use the working example:
+
 ```bash
+cd esp32-c6-agentic-firmware/lessons/01-blinky
+cargo build --release
+cargo run --release
+```
+
+## Monitor Serial Output
+
+```bash
+# View real-time logs
 espflash monitor /dev/cu.usbserial-10
+
+# Or use Python monitor script
+python3 scripts/monitor.py --port /dev/cu.usbserial-10 --baud 115200
 ```
-
-## What Works Now
-
-✅ **Build System**: Compiles successfully with esp-hal 1.0.0
-✅ **Flashing**: Successfully flashes to ESP32-C6
-✅ **Dependencies**: All version conflicts resolved
-✅ **Linker**: Proper linker script configuration
-✅ **Logging**: esp-println with log macros
-
-## Binary Info
-- **Size**: 1.0M (34,944 bytes app)
-- **Target**: riscv32imac-unknown-none-elf
-- **Features**: WiFi 6, Bluetooth 5 capable (not yet used)
-
-## Key Dependencies (Lesson 01)
-```toml
-esp-hal = { version = "1.0.0", features = ["esp32c6", "rt", "unstable", "log-04"] }
-esp-backtrace = { version = "0.18", features = ["esp32c6", "panic-handler", "println"] }
-esp-bootloader-esp-idf = { version = "0.4", features = ["esp32c6"] }
-esp-println = { version = "0.16", features = ["esp32c6", "log-04"] }
-```
-
-## Expected Behavior
-
-When flashed, the firmware should:
-1. Initialize peripherals
-2. Configure GPIO8 as output
-3. Blink LED every 1 second
-4. Output log messages via serial:
-   - "Starting Blinky LED Example..."
-   - "LED ON - iteration N"
-   - "LED OFF - iteration N"
-   - Milestone logs every 10 iterations
-
-## Next Steps
-
-1. **Verify LED Blinking**: Check if GPIO8 LED is blinking on your board
-2. **Monitor Serial Output**: Run `espflash monitor /dev/cu.usbserial-10` to see logs
-3. **Try Different GPIOs**: Modify main.rs to use different pins
-4. **Add More Lessons**: State machines, sensors, WiFi, etc.
 
 ## Troubleshooting
 
-### Build Fails
-- Ensure Rust stable toolchain is installed
-- Run `rustup target add riscv32imac-unknown-none-elf`
-- Check that all dependencies are at correct versions
+| Issue | Solution |
+|-------|----------|
+| `riscv32imac-unknown-none-elf not found` | Run `rustup target add riscv32imac-unknown-none-elf` |
+| `espflash: command not found` | Run `cargo install espflash --locked` |
+| `No port found` | Check USB cable, run `ls /dev/cu.*` to find port |
+| `Permission denied on port` | May need elevated privileges or different terminal |
 
-### Flash Fails
-- Verify USB cable is connected
-- Check that port `/dev/cu.usbserial-10` exists: `ls /dev/cu.*`
-- Try holding BOOT button while plugging in USB
+## Next Steps
 
-### No Serial Output
-- Increase ESP_LOG_LEVEL: `export ESP_LOG_LEVEL=debug`
-- Check serial port permissions
-- Try different terminal/baud rate
-
-## Resources
-
-- **GitHub Repo**: https://github.com/shanemmattner/esp32-c6-agentic-firmware
-- **esp-hal Docs**: https://docs.esp-rs.org/esp-hal/
-- **esp-hal Examples**: https://github.com/esp-rs/esp-hal/tree/main/examples
-- **Rust ESP Book**: https://docs.esp-rs.org/book/
+- **Lesson 01**: [GPIO Output & Input](./lessons/01-blinky/) ✅
+- **Lesson 02**: GPIO input and interrupts
+- **Lesson 03**: Async/await with Embassy
+- Full roadmap: [docs/LESSON_PLAN.md](./docs/LESSON_PLAN.md)
 
 ---
 
-*Generated with Claude Code on 2025-11-09*
+For detailed documentation, see [README.md](./README.md)
