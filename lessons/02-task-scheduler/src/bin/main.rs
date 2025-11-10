@@ -84,7 +84,7 @@ fn main() -> ! {
     loop {
         scheduler.tick(
             &delay,
-            || button::button_task(&button, &delay),
+            || button::button_task(&button),
             || neopixel::led_task(&mut led),
         );
     }

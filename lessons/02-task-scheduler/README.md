@@ -209,29 +209,51 @@ We use `Relaxed` ordering because:
 
 For multi-core systems with complex dependencies, you'd use stricter orderings like `Acquire`/`Release`.
 
-### 3. Button Task (button.rs)
+### 3. Button Task (button.rs) - Non-Blocking Debounce
 
 ```rust
-pub fn button_task(button: &Input, delay: &Delay) {
-    static mut BUTTON_WAS_PRESSED: bool = false;
+static mut BUTTON_WAS_PRESSED: bool = false;
+static mut DEBOUNCE_COUNTER: u32 = 0;
+
+const DEBOUNCE_CALLS: u32 = (DEBOUNCE_MS as u64 / BUTTON_PERIOD_MS) as u32;
+// 200ms / 10ms = 20 calls
+
+pub fn button_task(button: &Input) {
     let button_pressed = button.is_low();
 
     unsafe {
+        // If in debounce period, just decrement counter and return
+        if DEBOUNCE_COUNTER > 0 {
+            DEBOUNCE_COUNTER -= 1;
+            BUTTON_WAS_PRESSED = button_pressed;
+            return;  // Don't process button press
+        }
+
+        // Detect press as edge (LOW && was HIGH)
         if button_pressed && !BUTTON_WAS_PRESSED {
             info!("Button press detected!");
-            toggle_led_enabled();  // Use helper function
-            delay.delay_millis(DEBOUNCE_MS);  // Use constant
+            toggle_led_enabled();
+            DEBOUNCE_COUNTER = DEBOUNCE_CALLS;  // Start debounce period
         }
+
         BUTTON_WAS_PRESSED = button_pressed;
     }
 }
 ```
 
 **What's happening:**
-1. Detect press as edge (LOW && was HIGH)
-2. Call `toggle_led_enabled()` helper function
-3. Debounce using `DEBOUNCE_MS` constant
-4. Update previous state for next iteration
+1. Check if in debounce period - if yes, decrement counter and return early
+2. Detect press as edge (LOW && was HIGH)
+3. Call `toggle_led_enabled()` helper function
+4. Start debounce period by setting counter (20 calls = 200ms)
+5. Update previous state for next iteration
+
+**Why non-blocking debounce?**
+- Old approach: `delay.delay_millis(200)` blocks the entire scheduler
+- New approach: Use a counter that decrements each call (every 10ms)
+- Scheduler keeps running other tasks during debounce period
+- LED task continues updating every 50ms
+- More responsive system overall
 
 ### 4. LED Task (neopixel.rs)
 
