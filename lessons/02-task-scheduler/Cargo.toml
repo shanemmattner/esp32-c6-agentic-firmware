@@ -1,11 +1,11 @@
 [package]
-name = "lesson-02-embassy-tasks"
+name = "lesson-02-task-scheduler"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
 
 [[bin]]
-name = "lesson-02-embassy-tasks"
+name = "lesson-02-task-scheduler"
 path = "./src/bin/main.rs"
 
 [dependencies]
