@@ -1,0 +1,38 @@
+[package]
+name = "lesson-03-mpu9250"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+
+[[bin]]
+name = "lesson-03-mpu9250"
+path = "./src/bin/main.rs"
+
+[dependencies]
+# Hardware abstraction layer
+esp-hal = { version = "1.0.0", features = ["esp32c6", "unstable"] }
+
+# Panic handler
+esp-backtrace = { version = "0.15", features = ["esp32c6", "panic-handler", "println"] }
+
+# Serial printing and logging
+esp-println = { version = "0.13", features = ["esp32c6", "log"] }
+log = "0.4"
+
+# Bootloader app descriptor
+esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c6"] }
+
+# Critical sections
+critical-section = "1.2.0"
+
+[profile.dev]
+opt-level = "s"
+
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false
+incremental = false
+lto = 'fat'
+opt-level = 's'
+overflow-checks = false

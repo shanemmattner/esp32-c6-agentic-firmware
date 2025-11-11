@@ -3,7 +3,7 @@ import serial
 import time
 import sys
 
-port = '/dev/cu.usbserial-10'
+port = '/dev/cu.usbserial-110'
 baudrate = 115200
 duration = 20  # Read for 20 seconds
 
