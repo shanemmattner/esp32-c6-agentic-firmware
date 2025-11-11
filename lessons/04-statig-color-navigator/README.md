@@ -1,48 +1,49 @@
-# Lesson 03: MPU9250 IMU Sensor (SPI Communication)
+# Lesson 04: Statig State Machine - Color Navigator
 
-Basic SPI communication test with the MPU9250 9-DOF IMU (accelerometer + gyroscope + magnetometer).
+Interactive color control using statig state machine library, combining button input, IMU tilt sensing, and NeoPixel LED output.
 
 ## Learning Objectives
 
-- Initialize SPI peripheral on ESP32-C6
-- Configure GPIO pins for SPI (SCLK, MOSI, MISO, CS)
-- Implement basic SPI read/write protocol
-- Verify sensor communication via WHO_AM_I register
+- Using statig state machine library in no_std embedded Rust
+- Event-driven architecture with button and IMU events
+- HSV to RGB color conversion without floating point
+- Combining multiple peripherals through state machine coordination
+- Rotation angle calculation from accelerometer data
 
 ## Hardware Requirements
 
 - ESP32-C6 development board
-- MPU9250 module
+- MPU9250 9-DOF IMU module (I2C)
+- WS2812 NeoPixel LED (onboard or external)
+- Push button (onboard or external)
 - USB-C cable
 
 ### Pin Configuration
 
 ```
-MPU9250          ESP32-C6
+Component        ESP32-C6
 ─────────────────────────
-VCC       →      3.3V
-GND       →      GND
-SCLK      →      GPIO11
-SDI (MOSI)→      GPIO2
-SDO (MISO)→      GPIO3
-NCS (CS)  →      GPIO10
+Button      →    GPIO9 (active LOW with pull-up)
+NeoPixel    →    GPIO8 (RMT)
+MPU9250 SDA →    GPIO2 (I2C)
+MPU9250 SCL →    GPIO11 (I2C)
 ```
-
-**Note:** The MPU9250 can also run in I2C mode. This lesson uses SPI for higher speed communication.
 
 ## What You'll Learn
 
 This lesson demonstrates:
-- SPI peripheral initialization with esp-hal 1.0.0
-- Pin configuration for SPI bus
-- Chip select (CS) handling
-- Register-based sensor communication
-- Device identification via WHO_AM_I register
+- Statig hierarchical state machine with macro-based definition
+- Event-driven architecture: Button and IMU generate events
+- State transitions on button press
+- Rotation-based color calculation using accelerometer X/Y axes
+- Manual HSV→RGB conversion for embedded systems
+- Lock-free atomic shared state for inter-task communication
+- Non-blocking cooperative scheduler
 
 ## Build & Flash
 
 ```bash
-cd lessons/03-dht22-sensor
+cd lessons/04-statig-color-navigator
 
 # Build
 cargo build --release
@@ -54,87 +55,142 @@ cargo run --release
 ## Expected Output
 
 ```
-🚀 Starting Lesson 03: MPU9250 SPI Test
+🚀 Starting Lesson 04: Statig Color Navigator
 
-✓ SPI pins configured
-  SCLK: GPIO11
-  SDI (MOSI): GPIO2
-  SDO (MISO): GPIO3
-  CS:   GPIO10
+✓ I2C initialized (GPIO2=SDA, GPIO11=SCL)
+✓ MPU9250 awake
+✓ WHO_AM_I: 0x71
+✓ Button configured (GPIO9, active LOW)
+✓ NeoPixel initialized (GPIO8)
+✓ State machine initialized
 
-✓ SPI initialized
-Attempting to read WHO_AM_I register (0x75)...
-✓ Sent read request for WHO_AM_I register
-✓ SPI communication successful!
-  WHO_AM_I register: 0x71
-  ✓ Device ID matches MPU9250 (0x71)
+🔄 Starting interactive loop...
 
-✅ MPU9250 detected and responding!
+📊 IMU: accel_x=15976, accel_y=4968
+💡 LED: HSV(14°, 100%, 35%) → RGB(89, 21, 0)
+
+[User presses button]
+🔘 Event: ButtonPressed
+🎨 Transition: WarmPalette → CoolPalette
+
+📊 IMU: accel_x=11824, accel_y=11396
+💡 LED: HSV(203°, 100%, 35%) → RGB(0, 13, 89)
+
+[Continuous updates as board rotates...]
 ```
+
+## Interaction
+
+**How to use:**
+- **Rotate the board** in any direction → Color smoothly changes through palette
+- **Press button** → Switch between Warm and Cool color palettes
+
+**Color Palettes:**
+- **Warm Palette**: Red → Orange → Yellow → Yellow-Green (0-120° hue)
+- **Cool Palette**: Cyan → Blue → Purple → Magenta (180-300° hue)
+
+**Brightness**: Fixed at 35% for comfortable viewing
+
+## Code Structure
+
+- `src/bin/main.rs` - Main application with manual scheduler
+- `src/state_machine.rs` - Statig state machine with Warm/Cool palettes
+- `src/color.rs` - Manual HSV→RGB conversion with unit tests
+- `src/button.rs` - Non-blocking button debouncing (from Lesson 02)
+- `src/mpu9250.rs` - MPU9250 I2C driver (from Lesson 03)
+- `src/lib.rs` - Constants and atomic shared state
+- `Cargo.toml` - Dependencies including statig 0.3 with macro feature
+
+## Key Concepts
+
+### Statig State Machine
+
+```rust
+#[state_machine(
+    initial = "State::warm_palette()",
+    state(derive(Debug)),
+    on_transition = "Self::on_transition"
+)]
+impl ColorNavigator {
+    #[state]
+    fn warm_palette(&mut self, event: &Event) -> Response<State> {
+        match event {
+            Event::ButtonPressed => Transition(State::cool_palette()),
+            Event::ImuUpdate { accel_x, accel_y } => {
+                update_warm_palette(*accel_x, *accel_y);
+                Handled
+            }
+        }
+    }
+
+    #[state]
+    fn cool_palette(&mut self, event: &Event) -> Response<State> {
+        match event {
+            Event::ButtonPressed => Transition(State::warm_palette()),
+            Event::ImuUpdate { accel_x, accel_y } => {
+                update_cool_palette(*accel_x, *accel_y);
+                Handled
+            }
+        }
+    }
+}
+```
+
+### Rotation Angle Calculation
+
+Calculates rotation angle from X/Y accelerometer values using integer-only approximation of atan2:
+
+```rust
+fn calculate_rotation_angle(accel_x: i16, accel_y: i16) -> u32 {
+    // Maps X-Y plane to 0-360 degrees without floating point
+    // Uses quadrant detection and ratio approximation
+    // Returns smooth rotation tracking for color control
+}
+```
+
+### HSV to RGB Conversion
+
+Manual conversion without floating point, suitable for embedded systems:
+- Input: Hue (0-360°), Saturation (0-100%), Value (0-100%)
+- Output: RGB values (0-255)
+- Algorithm: Sector-based calculation with integer math
+- Unit tested for correctness
 
 ## Troubleshooting
 
 | Issue | Possible Cause | Solution |
 |-------|---|---|
-| WHO_AM_I = 0x00 | No device response | Check power, GND, SCLK/MOSI/MISO/CS wiring |
-| WHO_AM_I = 0xFF | SPI pin shorted | Verify no crossed wires, check board layout |
-| SPI error | Initialization failed | Verify GPIO11/2/3/10 are available |
-| Device ID mismatch | Wrong sensor | Verify device is MPU9250 (not MPU6050, etc) |
+| LED not changing color | MPU9250 not responding | Check I2C wiring (GPIO2/11) |
+| Button not working | Pull-up missing | Verify GPIO9 configured with Pull::Up |
+| LED too bright/dim | Brightness hardcoded | Adjust brightness value in state_machine.rs |
+| Jerky color changes | Sensor noise | Add filtering/smoothing to IMU readings |
+| No state transitions | Button debouncing issue | Check DEBOUNCE_MS constant |
 
-## Code Structure
+## Task Scheduling
 
-- `src/bin/main.rs` - Main SPI test (~100 lines)
-  - SPI initialization
-  - WHO_AM_I register read
-  - Device identification
-- `Cargo.toml` - Project manifest
+The main loop uses a simple cooperative scheduler:
+- **Tick period**: 10ms
+- **Button task**: Runs every 10ms (debounced)
+- **IMU task**: Runs every 100ms (throttled logging)
+- **LED task**: Runs every 50ms (updates NeoPixel)
 
-## MPU9250 Pinout
-
-```
-    +-------+
-VCC |1      | GND
-    |       |
-SCL |2      | SDA (I2C mode) / SDO (SPI mode)
-    |       |
-    |3  250 | INT
-    |2      |
-FSYN|4      | NCS (SPI mode chip select)
-    |       |
-    |5      | SCLK (SPI mode clock)
-AD0 |6      | SDI (SPI mode MOSI)
-    |       |
-GND |7      | GND
-    |8      | AUXDA (I2C aux)
-    +-------+
-```
-
-## SPI Protocol Overview
-
-The MPU9250 uses a standard SPI interface:
-- **Mode:** 0 or 3 (CPOL=0/1, CPHA=0/1)
-- **Clock:** Up to 20 MHz
-- **Data Format:** 8-bit bytes
-- **Register Format:**
-  - Read: Address byte with MSB=1, followed by data bytes
-  - Write: Address byte with MSB=0, followed by data bytes
-
-**WHO_AM_I Register (0x75):**
-- Read-only
-- Default value: 0x71 for MPU9250
-- Used to verify device is responding
+All tasks are non-blocking to maintain responsive control.
 
 ## Next Steps
 
-- **Lesson 04:** Full MPU9250 initialization and reading accelerometer data
-- **Lesson 05:** IMU data processing and orientation calculation
+- Add more color palettes (Rainbow, Fire, Ocean)
+- Implement Z-axis tilt for saturation control
+- Add gyroscope data for gesture recognition
+- Create animations triggered by motion patterns
 
 ## References
 
-- [MPU9250 Product Specification](https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-9250-Datasheet.pdf)
-- [esp-hal SPI Documentation](https://docs.rs/esp-hal/latest/esp_hal/spi/index.html)
-- [ESP32-C6 Technical Reference](https://www.espressif.com/sites/default/files/documentation/esp32-c6_technical_reference_manual_en.pdf)
+- [statig crate documentation](https://docs.rs/statig/latest/statig/)
+- [statig GitHub](https://github.com/mdeloof/statig)
+- [MPU9250 Datasheet](https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-9250-Datasheet.pdf)
+- [HSV color model](https://en.wikipedia.org/wiki/HSL_and_HSV)
+- [esp-hal I2C Documentation](https://docs.rs/esp-hal/latest/esp_hal/i2c/index.html)
 
 ---
 
-*Fast SPI communication test - foundation for sensor integration!* 🚀
+*State machines meet motion sensing - interactive embedded control!* 🎨

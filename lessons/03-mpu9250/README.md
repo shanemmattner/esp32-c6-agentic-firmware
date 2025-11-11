@@ -1,12 +1,12 @@
-# Lesson 03: MPU9250 IMU Sensor (SPI Communication)
+# Lesson 03: MPU9250 IMU Sensor (I2C Communication)
 
-Basic SPI communication test with the MPU9250 9-DOF IMU (accelerometer + gyroscope + magnetometer).
+Basic I2C communication with the MPU9250 9-DOF IMU (accelerometer + gyroscope + magnetometer).
 
 ## Learning Objectives
 
-- Initialize SPI peripheral on ESP32-C6
-- Configure GPIO pins for SPI (SCLK, MOSI, MISO, CS)
-- Implement basic SPI read/write protocol
+- Initialize I2C peripheral on ESP32-C6
+- Configure GPIO pins for I2C (SDA, SCL)
+- Implement basic I2C read/write protocol
 - Verify sensor communication via WHO_AM_I register
 
 ## Hardware Requirements
@@ -22,27 +22,24 @@ MPU9250          ESP32-C6
 ─────────────────────────
 VCC       →      3.3V
 GND       →      GND
-SCLK      →      GPIO11
-SDI (MOSI)→      GPIO2
-SDO (MISO)→      GPIO3
-NCS (CS)  →      GPIO10
+SDA       →      GPIO2
+SCL       →      GPIO11
 ```
 
-**Note:** The MPU9250 can also run in I2C mode. This lesson uses SPI for higher speed communication.
+**Note:** The MPU9250 supports both I2C and SPI modes. This lesson uses I2C for simplicity (2 wires vs 4).
 
 ## What You'll Learn
 
 This lesson demonstrates:
-- SPI peripheral initialization with esp-hal 1.0.0
-- Pin configuration for SPI bus
-- Chip select (CS) handling
+- I2C peripheral initialization with esp-hal 1.0.0
+- Pin configuration for I2C bus
 - Register-based sensor communication
 - Device identification via WHO_AM_I register
 
 ## Build & Flash
 
 ```bash
-cd lessons/03-dht22-sensor
+cd lessons/03-mpu9250
 
 # Build
 cargo build --release
@@ -54,70 +51,50 @@ cargo run --release
 ## Expected Output
 
 ```
-🚀 Starting Lesson 03: MPU9250 SPI Test
+🚀 Starting Lesson 03: MPU9250 Sensor
 
-✓ SPI pins configured
-  SCLK: GPIO11
-  SDI (MOSI): GPIO2
-  SDO (MISO): GPIO3
-  CS:   GPIO10
+✓ I2C initialized (GPIO2=SDA, GPIO11=SCL)
+✓ MPU9250 awake
+✓ WHO_AM_I: 0x71
+✓ Task scheduler ready
 
-✓ SPI initialized
-Attempting to read WHO_AM_I register (0x75)...
-✓ Sent read request for WHO_AM_I register
-✓ SPI communication successful!
-  WHO_AM_I register: 0x71
-  ✓ Device ID matches MPU9250 (0x71)
+🔄 Starting sensor readings...
 
-✅ MPU9250 detected and responding!
+[Accel] X= 16052 Y= -5744 Z=  1576
+[Gyro]  X=  -111 Y=   -49 Z=   -54
+
+[Accel] X= 15992 Y= -5852 Z=  1564
+[Gyro]  X=   -61 Y=  -151 Z=   -44
+...
 ```
 
 ## Troubleshooting
 
 | Issue | Possible Cause | Solution |
 |-------|---|---|
-| WHO_AM_I = 0x00 | No device response | Check power, GND, SCLK/MOSI/MISO/CS wiring |
-| WHO_AM_I = 0xFF | SPI pin shorted | Verify no crossed wires, check board layout |
-| SPI error | Initialization failed | Verify GPIO11/2/3/10 are available |
+| WHO_AM_I = 0x00 | No device response | Check power, GND, SDA/SCL wiring |
+| WHO_AM_I = 0xFF | I2C pin issue | Verify SDA/SCL not swapped, check pull-ups |
+| I2C error | Initialization failed | Verify GPIO2/11 are available |
 | Device ID mismatch | Wrong sensor | Verify device is MPU9250 (not MPU6050, etc) |
 
 ## Code Structure
 
-- `src/bin/main.rs` - Main SPI test (~100 lines)
-  - SPI initialization
+- `src/bin/main.rs` - Main I2C sensor reading (~100 lines)
+  - I2C initialization
   - WHO_AM_I register read
-  - Device identification
+  - Accelerometer and gyroscope data reading
+- `src/mpu9250.rs` - MPU9250 driver functions
+- `src/scheduler.rs` - Simple task scheduler
+- `src/tasks.rs` - IMU reading task
 - `Cargo.toml` - Project manifest
 
-## MPU9250 Pinout
+## I2C Protocol Overview
 
-```
-    +-------+
-VCC |1      | GND
-    |       |
-SCL |2      | SDA (I2C mode) / SDO (SPI mode)
-    |       |
-    |3  250 | INT
-    |2      |
-FSYN|4      | NCS (SPI mode chip select)
-    |       |
-    |5      | SCLK (SPI mode clock)
-AD0 |6      | SDI (SPI mode MOSI)
-    |       |
-GND |7      | GND
-    |8      | AUXDA (I2C aux)
-    +-------+
-```
-
-## SPI Protocol Overview
-
-The MPU9250 uses a standard SPI interface:
-- **Mode:** 0 or 3 (CPOL=0/1, CPHA=0/1)
-- **Clock:** Up to 20 MHz
-- **Data Format:** 8-bit bytes
-- **Register Format:**
-  - Read: Address byte with MSB=1, followed by data bytes
-  - Write: Address byte with MSB=0, followed by data bytes
+The MPU9250 I2C interface:
+- **I2C Address:** 0x68 (or 0x69 if AD0 pin is high)
+- **Clock Speed:** Standard 100kHz or Fast 400kHz
+- **Data Format:** 8-bit registers
+- **Register Access:** Write address byte, then read/write data
 
 **WHO_AM_I Register (0x75):**
 - Read-only
@@ -126,15 +103,15 @@ The MPU9250 uses a standard SPI interface:
 
 ## Next Steps
 
-- **Lesson 04:** Full MPU9250 initialization and reading accelerometer data
-- **Lesson 05:** IMU data processing and orientation calculation
+- **Lesson 04:** Statig state machine with IMU-controlled color navigator
+- **Future:** IMU data processing and orientation calculation
 
 ## References
 
 - [MPU9250 Product Specification](https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-9250-Datasheet.pdf)
-- [esp-hal SPI Documentation](https://docs.rs/esp-hal/latest/esp_hal/spi/index.html)
+- [esp-hal I2C Documentation](https://docs.rs/esp-hal/latest/esp_hal/i2c/index.html)
 - [ESP32-C6 Technical Reference](https://www.espressif.com/sites/default/files/documentation/esp32-c6_technical_reference_manual_en.pdf)
 
 ---
 
-*Fast SPI communication test - foundation for sensor integration!* 🚀
+*I2C sensor communication - foundation for motion-based applications!* 🚀
