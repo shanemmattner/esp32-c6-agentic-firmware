@@ -39,6 +39,11 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
+// ============================================================================
+// [USER TYPES] - I2C initialization and scheduler loop
+// ============================================================================
+// DELETE the above comment line and type the code below in your video
+
 #[main]
 fn main() -> ! {
     esp_println::logger::init_logger_from_env();
@@ -102,3 +107,5 @@ fn main() -> ! {
         }
     }
 }
+
+// [END USER TYPES]

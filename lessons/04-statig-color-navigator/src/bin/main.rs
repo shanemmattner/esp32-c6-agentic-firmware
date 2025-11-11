@@ -61,8 +61,9 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 esp_bootloader_esp_idf::esp_app_desc!();
 
 // ============================================================================
-// MAIN
+// [USER TYPES] - Initialization and state machine loop
 // ============================================================================
+// DELETE the comment above and type the code below in your video
 
 #[main]
 fn main() -> ! {
@@ -201,3 +202,5 @@ fn main() -> ! {
         }
     }
 }
+
+// [END USER TYPES]

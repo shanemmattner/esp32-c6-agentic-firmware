@@ -43,6 +43,11 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
+// ============================================================================
+// [USER TYPES] - Main application and scheduler loop
+// ============================================================================
+// DELETE the above comment line and type the code below in your video
+
 #[main]
 fn main() -> ! {
     // Initialize logging
@@ -89,3 +94,5 @@ fn main() -> ! {
         );
     }
 }
+
+// [END USER TYPES]

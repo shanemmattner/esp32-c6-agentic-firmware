@@ -27,6 +27,11 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
+// ============================================================================
+// [USER TYPES] - Device integration test
+// ============================================================================
+// DELETE the comment above and type the code below in your video
+
 #[main]
 fn main() -> ! {
     esp_println::logger::init_logger_from_env();
@@ -90,3 +95,5 @@ fn main() -> ! {
         delay.delay_millis(1000);
     }
 }
+
+// [END USER TYPES]

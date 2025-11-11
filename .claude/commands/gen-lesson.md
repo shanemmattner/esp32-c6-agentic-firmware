@@ -1038,15 +1038,44 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - User must confirm expected behavior
 - Checkpoint before proceeding to cleanup
 
-### 6. Simple, Readable Code for Live Typing
-- **Target: ~100-150 lines for basic lessons** (must be type-able live on video)
-- **NO edge case exhaustion** - cover the main use cases, not every possible scenario
-- **Keep tests minimal** - 3-5 tests max per module, not 10-20
-- **Simple state machines** - prefer 2-3 states, not complex multi-state systems
-- Code should be easy to type and explain verbally during live coding
-- Progressive complexity across lessons
-- Clear, concise comments (not essays)
-- **Remember**: User will be typing ALL of this code live for YouTube videos
+### 6. Code Structure for Video Production
+
+**For simple lessons (01-05):**
+- **Target: ~100-150 lines user-typed** (entire lesson type-able in 5-10 minutes)
+- Mark sections with comments showing what user types:
+  ```rust
+  // [USER TYPES] - Main application logic
+  // ============================================================================
+  fn main() -> ! { /* ... */ }
+  // [END USER TYPES]
+  ```
+
+**For complex lessons (06+):**
+- **Split code into sections** with clear markers:
+  ```rust
+  // [SECTION 1/3: USER TYPES - Main loop and streaming]
+  // DELETE THIS COMMENT and type from here...
+  fn main() -> ! { /* ... */ }
+  // [END SECTION 1/3]
+
+  // [SECTION 2/3: COPY-PASTE - UART driver]
+  // Keep this, copy from starter code
+  // ... boilerplate code ...
+  // [END SECTION 2/3]
+  ```
+
+- **~50-100 lines USER TYPES** - Core logic (type live)
+- **~100-300 lines COPY-PASTE** - Drivers, utilities, boilerplate
+- **Total video: 15-20 minutes** (intro + copy + live coding + test)
+
+**Guidelines:**
+- Mark sections clearly for easy find-and-replace during video editing
+- Keep USER TYPES sections interesting and understandable
+- Put repetitive/boilerplate code in COPY-PASTE sections
+- Provide STARTER_CODE.md with copy-paste blocks clearly marked
+- No edge case exhaustion
+- Simple, readable code
+- Clear section comments
 
 ### 7. Test-Driven Development (TDD) for Future Lessons
 - **Write tests BEFORE implementation** when appropriate (for pure functions)
