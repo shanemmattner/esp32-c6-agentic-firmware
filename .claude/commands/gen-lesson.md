@@ -43,7 +43,7 @@ description: Complete ESP32-C6 lesson development workflow - from PRD to hardwar
 **Before asking questions**, research the codebase and esp-hal APIs:
 
 1. **Search existing lessons** for related functionality:
-   - Check `lessons/01-blinky/`, `lessons/02-simple-tasks/` for patterns
+   - Check `lessons/01-blinky/` for patterns
    - Review existing PRDs in `docs/prd/`
    - Look at esp-hal examples for the peripheral
 
