@@ -1126,4 +1126,143 @@ For advanced topics (save for future lessons):
 
 ---
 
+## Claude Code Slash Commands
+
+This lesson includes custom slash commands for automated workflows. These commands encapsulate manual debugging steps into consistent, repeatable processes.
+
+### Available Commands
+
+#### `/test-gdb-lesson [quick|full]`
+
+**Purpose:** Comprehensive test suite for this lesson's debugging capabilities.
+
+**What it does:**
+1. Auto-detects USB ports (handles port changes on replug)
+2. Auto-detects ESP JTAG probe number (multi-probe support)
+3. Cleans up existing debug sessions
+4. Builds firmware with debug symbols
+5. Flashes using espflash (avoids probe-rs exclusive locks)
+6. Tests 11 debugging capabilities:
+   - Firmware boot verification
+   - probe-rs attach and register reads
+   - Breakpoints (main, functions, call stack)
+   - Memory inspection
+   - Debug symbols verification
+   - Source code structure
+   - GDB config files (for future use)
+7. Generates comprehensive markdown test report
+
+**Usage:**
+```bash
+/test-gdb-lesson quick    # 5-10 minute test (11 core tests)
+/test-gdb-lesson full     # 15-20 minute test (15 tests with scenarios)
+```
+
+**Success criteria:**
+- Quick mode: 9/11 tests pass (81%+)
+- Full mode: 12/15 tests pass (80%+)
+
+**Why it exists:**
+- Originally created because the test agent struggled with:
+  - Probe selection (tried `--probe 1`, then `--probe 303a:1001` before finding auto-detection)
+  - Port detection after replug (hardcoded paths failed)
+  - Exclusive lock conflicts (probe-rs run vs attach)
+  - Process cleanup (existing sessions blocking new ones)
+- These learnings are now encoded into the command
+
+#### `/esp32-debug`
+
+**Purpose:** AI-assisted debugging workflow for ESP32-C6 firmware.
+
+**What it does:**
+1. Captures system state (boot messages, crash logs)
+2. Uses probe-rs or GDB to inspect program state
+3. Reads peripheral registers to understand hardware state
+4. Provides root cause analysis and fixes
+5. Iteratively tests fixes using feedback loop
+
+**Usage:**
+```bash
+/esp32-debug
+# Then describe the issue you're seeing
+```
+
+**Common use cases:**
+- Firmware crashes on boot
+- Peripheral not working despite initialization
+- No serial output
+- Unexpected behavior
+
+**How it works:**
+- Captures USB CDC output with DTR reset
+- Attaches probe-rs for live debugging
+- Inspects peripheral registers (I2C, GPIO, UART, RMT)
+- Suggests fixes based on register state
+- Helps rebuild → flash → test → iterate
+
+---
+
+## How We Use These Commands
+
+### Development Workflow
+
+1. **During lesson creation:**
+   - Manual steps are performed and recorded
+   - Repeated patterns identified
+   - Common errors noted
+   - Successful approaches documented
+
+2. **Command creation:**
+   - Encapsulate proven workflows into slash commands
+   - Add error handling for common issues
+   - Include auto-detection for changing hardware state
+   - Document assumptions and prerequisites
+
+3. **Continuous improvement:**
+   - Analyze conversation logs from command usage
+   - Look for struggle patterns (LLM trying multiple approaches)
+   - Look for knowledge discoveries (new techniques found)
+   - Look for anti-patterns (repeated errors)
+   - Update commands based on learnings
+
+### Improvement Cycle
+
+```
+Manual Task → Document Steps → Create Slash Command → Use Command →
+Analyze Logs → Find Improvements → Update Command → Repeat
+```
+
+**Example:** The `/test-gdb-lesson` command evolved through:
+1. Initial manual testing revealed probe selection issues
+2. Created command with `--probe 1` hardcoded
+3. Testing showed this failed with multiple probes
+4. Added auto-detection from `probe-rs list | grep "esp.*jtag"`
+5. Testing showed port changes after replug
+6. Added dynamic port detection with `ls /dev/cu.usbmodem*`
+7. Now robust to hardware changes
+
+### Adding New Commands
+
+When you find yourself doing the same manual steps repeatedly:
+
+1. **Document the successful sequence** in your conversation
+2. **Identify parameters** that change (ports, probe numbers, file paths)
+3. **Extract the core workflow** (what stays the same)
+4. **Create `.claude/commands/<name>.md`** with:
+   - Clear description
+   - Argument hints
+   - Prerequisites check
+   - Step-by-step execution
+   - Expected outputs
+   - Error handling
+   - Success criteria
+
+5. **Test the command** on real hardware
+6. **Analyze the results** and improve
+7. **Document learnings** in IDEAS.md
+
+---
+
 **You now have a complete debugging workflow for embedded Rust development!** 🎉
+
+*Note: For ideas on future slash commands and workflow improvements, see `IDEAS.md` in the project root.*
