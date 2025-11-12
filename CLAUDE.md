@@ -128,12 +128,13 @@ No massive test plans until code works on hardware.
 ## Slash Commands & Tools
 
 Custom slash commands are stored in `.claude/commands/`:
-- **`/rtt-suite`** - RTT (Real-Time Transfer) debugging and validation tools
-  - `/rtt-tutorial` - Learn RTT best practices
-  - `/rtt-sweep` - Performance characterization for your device
-  - `/rtt-validate` - Automated firmware testing
-  - `/rtt-analyze` - Log analysis and parsing
-  - `/rtt-tools` - Reference and utilities
+- **`/rtt [subcommand]`** - RTT (Real-Time Transfer) debugging and validation tools
+  - `tutorial [topic]` - Learn RTT best practices interactively
+  - `sweep [options]` - Performance characterization for your device
+  - `validate [file]` - Automated firmware testing on hardware
+  - `analyze [log]` - Log analysis and parsing
+  - `tools` - Reference and system diagnostics
+  - `guide` - Open full RTT Mastery reference
 
 See `.claude/rtt-guide.md` for complete RTT reference documentation.
 

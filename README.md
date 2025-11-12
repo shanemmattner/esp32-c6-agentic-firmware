@@ -57,10 +57,12 @@ See [QUICKSTART.md](./QUICKSTART.md) for detailed instructions.
 This project includes comprehensive RTT (Real-Time Transfer) tools for automated firmware testing and debugging:
 
 ```bash
-/rtt-tutorial          # Learn RTT best practices
-/rtt-sweep            # Performance characterization for your device
-/rtt-validate         # Automated firmware testing
-/rtt-analyze          # Log analysis and parsing
+/rtt tutorial                    # Learn RTT best practices interactively
+/rtt sweep --device esp32c6     # Performance characterization for your device
+/rtt validate src/bin/main.rs   # Automated firmware testing on hardware
+/rtt analyze logs.txt           # Log analysis and parsing
+/rtt tools                       # System diagnostics and reference
+/rtt guide                       # Open full RTT Mastery reference
 ```
 
 See **[`.claude/rtt-guide.md`](./.claude/rtt-guide.md)** for complete reference documentation.
