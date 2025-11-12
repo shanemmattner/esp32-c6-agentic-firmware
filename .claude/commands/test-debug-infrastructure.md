@@ -177,29 +177,29 @@ export LESSON_DIR="$LESSON_DIR"
 echo "=== Step 1: Environment Setup ==="
 
 # 1. Detect USB CDC port (required for flashing)
-export USB_CDC_PORT=$(ls /dev/cu.usbmodem* 2>/dev/null | head -1)
-if [ -z "$USB_CDC_PORT" ]; then
+export USB_CDC_PORT=\$(ls /dev/cu.usbmodem* 2>/dev/null | head -1)
+if [ -z "\$USB_CDC_PORT" ]; then
     echo "✗ ERROR: USB CDC port not found"
     echo "  Expected: /dev/cu.usbmodem* (macOS) or /dev/ttyACM* (Linux)"
     echo "  Action: Verify ESP32-C6 USB connection"
     exit 1
 fi
-echo "✓ USB CDC: $USB_CDC_PORT"
+echo "✓ USB CDC: \$USB_CDC_PORT"
 
 # 2. Detect ESP JTAG probe (VID:PID:Serial format for --probe flag)
-export ESP_PROBE=$(probe-rs list 2>&1 | grep -i "esp.*jtag" | grep -oE '[0-9a-fA-F]{4}:[0-9a-fA-F]{4}(:[0-9A-F:]+)?' | head -1)
-if [ -n "$ESP_PROBE" ]; then
-    export PROBE_ARG="--probe $ESP_PROBE"
-    echo "✓ ESP Probe: $ESP_PROBE"
+export ESP_PROBE=\$(probe-rs list 2>&1 | grep -i "esp.*jtag" | grep -oE '[0-9a-fA-F]{4}:[0-9a-fA-F]{4}(:[0-9A-F:]+)?' | head -1)
+if [ -n "\$ESP_PROBE" ]; then
+    export PROBE_ARG="--probe \$ESP_PROBE"
+    echo "✓ ESP Probe: \$ESP_PROBE"
 else
     export PROBE_ARG=""
     echo "⚠ ESP Probe: Auto-detection failed - will try without --probe flag"
 fi
 
 # 3. Detect UART port (optional - only needed for interactive Test 6)
-export UART_PORT=$(ls /dev/cu.usbserial* 2>/dev/null | head -1)
-if [ -n "$UART_PORT" ]; then
-    echo "✓ UART: $UART_PORT"
+export UART_PORT=\$(ls /dev/cu.usbserial* 2>/dev/null | head -1)
+if [ -n "\$UART_PORT" ]; then
+    echo "✓ UART: \$UART_PORT"
 else
     echo "⚠ UART: not detected (optional)"
 fi
@@ -218,9 +218,9 @@ fi
 
 echo ""
 echo "=== Environment Ready ==="
-echo "USB CDC: $USB_CDC_PORT"
-echo "ESP Probe: ${ESP_PROBE:-auto-detect}"
-echo "UART: ${UART_PORT:-not configured}"
+echo "USB CDC: \$USB_CDC_PORT"
+echo "ESP Probe: \${ESP_PROBE:-auto-detect}"
+echo "UART: \${UART_PORT:-not configured}"
 echo ""
 ENV_SCRIPT
 
