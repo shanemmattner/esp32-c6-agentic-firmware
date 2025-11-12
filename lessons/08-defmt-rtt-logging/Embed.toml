@@ -1,0 +1,21 @@
+[default.general]
+chip = "esp32c6"
+
+[default.probe]
+protocol = "Jtag"
+speed = 1000  # Slower JTAG clock for stability
+
+[default.rtt]
+enabled = true
+up_mode = "BlockIfFull"
+timeout = 10000
+# Control block address
+control_block_address = 0x40800dbc
+
+[[default.rtt.up_channels]]
+channel = 0
+name = "defmt"
+mode = "BlockIfFull"
+
+[default.gdb]
+enabled = false

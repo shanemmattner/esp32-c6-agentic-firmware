@@ -1,41 +1,32 @@
-//! # Lesson 08: defmt + RTT Structured Logging
+//! Lesson 09: RTT Variable Streaming Infrastructure
 //!
-//! Learn structured logging with defmt and Real-Time Transfer (RTT).
-//!
-//! **What You'll Learn:**
-//! - Replace esp-println with defmt for 9x Flash savings
-//! - Structured logging (machine-parseable)
-//! - Real-Time Transfer (RTT) for high-speed logging
-//! - Zero-overhead logging
+//! Stream arbitrary hardware variables via RTT for data-driven debugging.
+//! Demonstrates the maximum observability philosophy: log 50-500+ variables
+//! @ 100 Hz to catch bugs instantly via pattern detection.
 
 #![no_std]
 #![no_main]
 
-use defmt::{info, warn, error, debug};  // Import only what we need, NOT *
+use defmt::info;
 use defmt_rtt as _;
+use esp_hal::{delay::Delay, main};
+use core::sync::atomic::{AtomicU32, Ordering};
 
-use esp_hal::{
-    delay::Delay,
-    main,
-};
-
-// Import structured logging types from lib
-use lesson_08_defmt_rtt_logging::{
-    I2cTransaction, I2cOperation, I2cStatus,
-    GpioEvent, GpioState,
-    ImuReading,
-    SensorStatus,
-};
+// Import telemetry infrastructure
+use lesson_08_defmt_rtt_logging::telemetry::{Telemetry, SystemState};
 
 // defmt timestamp
-defmt::timestamp!("{=u64:us}", {
-    0  // Placeholder
+defmt::timestamp!("{=u32:ms}", {
+    static COUNTER: AtomicU32 = AtomicU32::new(0);
+    let n = COUNTER.load(Ordering::Relaxed);
+    COUNTER.store(n + 1, Ordering::Relaxed);
+    n
 });
 
-// Custom panic handler for defmt (uses built-in panic_handler attribute)
+// Panic handler
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
-    error!("PANIC: {}", defmt::Debug2Format(info));
+    defmt::error!("PANIC: {}", defmt::Debug2Format(info));
     loop {}
 }
 
@@ -45,75 +36,85 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
 #[main]
 fn main() -> ! {
-    info!("🚀 Starting Lesson 08: defmt + RTT Structured Logging");
+    info!("Starting Lesson 09: RTT Variable Streaming");
 
     let _peripherals = esp_hal::init(esp_hal::Config::default());
     let delay = Delay::new();
 
-    info!("✓ Initialization complete");
-    info!("Demonstrating structured logging with defmt + custom types...");
+    info!("ESP32-C6 booted, RTT ready for telemetry");
 
-    let mut loop_count: u32 = 0;
+    // Create telemetry instance
+    let mut telemetry = Telemetry::new();
+
+    // === Phase 1: Initialization ===
+    info!("=== Phase 1: Hardware Initialization ===");
+    telemetry.state.transition(SystemState::Initializing);
+
+    // Simulate I2C initialization and config write
+    telemetry.i2c.record_write(0x48, 0x8483);
+    telemetry.i2c.record_write_success();
+    telemetry.config.written = 0x8483;
+    telemetry.config.mux = 0;
+    telemetry.config.pga = 1;
+    telemetry.config.mode = 0;
+    telemetry.config.dr = 7;
+    telemetry.state.transition(SystemState::ConfigWritten);
+    telemetry.log_all();
+
+    // Verify config by reading back
+    delay.delay_millis(10);
+    telemetry.i2c.record_read(0x48);
+    telemetry.i2c.record_read_success();
+    telemetry.config.readback = 0x8483;
+    telemetry.state.transition(SystemState::ConfigVerified);
+    telemetry.log_all();
+
+    // === Phase 2: Steady-state operation ===
+    info!("=== Phase 2: Steady-state Operation (streaming every 100ms) ===");
+    telemetry.state.transition(SystemState::Idle);
+
+    let mut iteration: u32 = 0;
 
     loop {
-        // === Log basic counters (machine-parseable) ===
-        if loop_count % 100 == 0 {
-            info!("Loop iteration: count={=u32}", loop_count);
+        // Simulate ADC reading cycle
+        telemetry.state.transition(SystemState::ConversionInProgress);
+        delay.delay_millis(5);
+
+        // Simulate conversion complete
+        let raw_adc = 0x0ABC + (iteration as u16 % 64);
+        telemetry.adc.raw = raw_adc;
+        telemetry.adc.volts = ((raw_adc as f32 - 2048.0) / 2048.0) * 4.096;
+        telemetry.adc.ready = true;
+        telemetry.adc.busy = false;
+
+        // Record I2C transaction
+        telemetry.i2c.record_read(0x48);
+        telemetry.i2c.record_read_success();
+
+        // Update data quality
+        telemetry.data_quality.update(raw_adc);
+
+        // Track state timing
+        telemetry.state.state = SystemState::ResultReady;
+        telemetry.state.update_time(100);
+
+        // Log all telemetry every 100ms
+        if iteration % 10 == 0 {
+            telemetry.log_all();
         }
 
-        // === Demonstrate I2C transaction logging ===
-        if loop_count % 200 == 0 {
-            let i2c_tx = I2cTransaction {
-                addr: 0x68,
-                operation: I2cOperation::Read,
-                bytes_transferred: 6,
-                status: I2cStatus::Success,
-            };
-            info!("I2C transaction: {}", i2c_tx);
+        // Also log critical state more frequently
+        if iteration % 5 == 0 {
+            telemetry.log_critical();
         }
 
-        // === Demonstrate GPIO event logging ===
-        if loop_count % 300 == 0 {
-            let gpio_evt = GpioEvent {
-                pin: 9,
-                state: GpioState::High,
-                timestamp_us: loop_count * 10,
-            };
-            info!("GPIO event: {}", gpio_evt);
-        }
-
-        // === Demonstrate IMU reading logging ===
-        if loop_count % 400 == 0 {
-            let imu = ImuReading::with_values(
-                256,   // accel_x
-                512,   // accel_y
-                -128,  // accel_z
-                10,    // gyro_x
-                20,    // gyro_y
-                -5,    // gyro_z
-                25,    // temp (°C)
-                loop_count * 10,
-            );
-            info!("IMU reading: {}", imu);
-        }
-
-        // === Demonstrate sensor status logging ===
-        if loop_count % 500 == 0 {
-            let sensor = SensorStatus {
-                device_id: 0x68,
-                is_healthy: true,
-                error_count: 0,
-                sample_count: loop_count / 5,
-            };
-            warn!("Sensor status: {}", sensor);
-        }
-
-        // === Demonstrate debug logging ===
-        if loop_count % 1000 == 0 {
-            debug!("Checkpoint reached at iteration {=u32}", loop_count);
-        }
-
-        loop_count += 1;
+        iteration += 1;
         delay.delay_millis(10);
+
+        // Occasionally simulate an error to see error handling in logs
+        if iteration % 100 == 50 {
+            telemetry.i2c.record_error();
+            info!("Simulated I2C error for demonstration");
+        }
     }
 }

@@ -1,8 +1,15 @@
-//! Lesson 08: Structured Logging with defmt + RTT
+//! Lesson 09: RTT Variable Streaming Infrastructure
 //!
-//! Custom defmt format implementations for machine-parseable structured logging.
+//! RTT telemetry module for streaming arbitrary hardware variables to host computer.
 
 #![no_std]
+
+pub mod telemetry;
+
+pub use telemetry::{
+    ADCResult, ConfigRegisterState, DataQuality, I2CStatus, StateTracking, SystemState,
+    Telemetry,
+};
 
 use defmt::Format;
 
