@@ -125,5 +125,20 @@ No massive test plans until code works on hardware.
 
 ---
 
-**Last Updated:** 2025-11-09
-**Next:** Implement Lesson 03: DHT22 sensor (simple version!)
+## Slash Commands & Tools
+
+Custom slash commands are stored in `.claude/commands/`:
+- **`/rtt-suite`** - RTT (Real-Time Transfer) debugging and validation tools
+  - `/rtt-tutorial` - Learn RTT best practices
+  - `/rtt-sweep` - Performance characterization for your device
+  - `/rtt-validate` - Automated firmware testing
+  - `/rtt-analyze` - Log analysis and parsing
+  - `/rtt-tools` - Reference and utilities
+
+See `.claude/rtt-guide.md` for complete RTT reference documentation.
+
+---
+
+**Last Updated:** 2025-11-12
+**Current Work:** Lesson 08 (Structured Logging with defmt + RTT)
+**Next:** Lesson 08-C3 (Flash size comparison)

@@ -24,6 +24,8 @@ Progressive tutorials from basic GPIO to advanced features:
 - **04-i2c-sensor** - I2C driver implementation
 - **05-spi-display** - SPI with display driver
 - **06-uart-shell** - UART communication and CLI
+- **[07-gdb-debugging](./lessons/07-gdb-debugging/)** ✅ - GDB debugging with OpenOCD
+- **[08-defmt-rtt-logging](./lessons/08-defmt-rtt-logging/)** ✅ - Structured logging with defmt + RTT
 
 See [docs/LESSON_PLAN.md](./docs/LESSON_PLAN.md) for the full curriculum.
 
@@ -50,9 +52,23 @@ cargo run --release  # Flash to ESP32-C6
 
 See [QUICKSTART.md](./QUICKSTART.md) for detailed instructions.
 
+## 🔧 RTT Debugging & Validation Tools
+
+This project includes comprehensive RTT (Real-Time Transfer) tools for automated firmware testing and debugging:
+
+```bash
+/rtt-tutorial          # Learn RTT best practices
+/rtt-sweep            # Performance characterization for your device
+/rtt-validate         # Automated firmware testing
+/rtt-analyze          # Log analysis and parsing
+```
+
+See **[`.claude/rtt-guide.md`](./.claude/rtt-guide.md)** for complete reference documentation.
+
 ## 📖 Documentation
 
 - **[docs/LESSON_PLAN.md](./docs/LESSON_PLAN.md)** - Full curriculum overview
+- **[.claude/rtt-guide.md](./.claude/rtt-guide.md)** - RTT mastery reference
 - **[docs/REMOTE_DEVELOPMENT.md](./docs/REMOTE_DEVELOPMENT.md)** - Remote build setup
 - **[Official esp-hal Docs](https://docs.esp-rs.org/esp-hal/)** - HAL reference
 - **[esp-hal Examples](https://github.com/esp-rs/esp-hal/tree/main/examples)** - Code examples
