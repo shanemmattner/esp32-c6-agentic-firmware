@@ -59,7 +59,7 @@ ser.close()
 EOF
 ```
 
-###Step 2: Analyze Boot Messages
+### Step 2: Analyze Boot Messages
 
 Look for:
 - ✅ Peripheral initialization messages
@@ -80,29 +80,65 @@ probe-rs attach --chip esp32c6 --protocol jtag target/riscv32imac-unknown-none-e
 probe-rs run --chip esp32c6 --protocol jtag target/riscv32imac-unknown-none-elf/debug/main
 ```
 
-### Step 4: Inspect Peripheral Registers
+### Step 4: Inspect Peripheral Registers and Memory
 
-```python
-# Read I2C status
-i2c_status = *(unsigned int*)0x60013004
-if i2c_status & 0x01:
-    print("I2C BUSY")
-if i2c_status & 0x20:
-    print("I2C TIMEOUT")
-
-# Read GPIO state
-gpio_in = *(unsigned int*)0x6000403C
-button_pressed = (gpio_in & (1<<9)) == 0  # GPIO9, active LOW
+**Read arbitrary memory (no debug code needed):**
+```bash
+# With probe-rs attached, use GDB
+gdb target/riscv32imac-unknown-none-elf/debug/main
+(gdb) target remote :3333
+(gdb) x/1xw 0x60013004      # Read I2C status
+(gdb) x/1xw 0x6000403C      # Read GPIO input
+(gdb) print my_global_var   # Read variable by name
+(gdb) set my_global_var = 42  # Modify at runtime
 ```
 
-### Step 5: Iterative Fix and Test
+**Check I2C status:**
+```bash
+# I2C0 base: 0x60013000
+# STATUS (0x04): I2C status flags
+# Bit 0: BUSY
+# Bit 5: TIMEOUT
+(gdb) x/1xw 0x60013004
+```
 
-1. Identify root cause from GDB/logs
+**Check GPIO state:**
+```bash
+# GPIO base: 0x60004000
+# IN (0x3C): Input register
+(gdb) x/1xw 0x6000403C
+```
+
+### Step 5: Advanced Debugging with RTT and Counters
+
+For high-frequency issues, add minimal RTT logging with event counters:
+
+```rust
+use core::sync::atomic::{AtomicU32, Ordering};
+
+static I2C_ERRORS: AtomicU32 = AtomicU32::new(0);
+static GPIO_INTERRUPTS: AtomicU32 = AtomicU32::new(0);
+
+// In hot path (interrupt handler):
+I2C_ERRORS.fetch_add(1, Ordering::Relaxed);  // 5-10 CPU cycles, non-blocking
+
+// Log periodically (e.g., every 100ms):
+defmt::info!("i2c_errors={}, interrupts={}",
+    I2C_ERRORS.load(Ordering::Relaxed),
+    GPIO_INTERRUPTS.load(Ordering::Relaxed)
+);
+```
+
+Use probe-rs memory access to watch counters change in real-time without modifying code.
+
+### Step 6: Iterative Fix and Test
+
+1. Identify root cause from boot messages and probe-rs inspection
 2. Propose specific fix
 3. Apply fix to code
 4. Rebuild: `cargo build`
 5. Flash: `espflash flash --port /dev/cu.usbmodem2101 target/riscv32imac-unknown-none-elf/debug/main`
-6. Test: Capture new boot messages
+6. Test: Capture new boot messages or use probe-rs
 7. Repeat if needed
 
 ## Common Issues and Solutions
@@ -198,10 +234,12 @@ Press button → LED toggles once → ✅ Fixed!
 ## Key Principles
 
 1. **Always capture boot messages first** - fastest way to see what's happening
-2. **Use GDB for deep inspection** - when you need to understand WHY
-3. **Check peripheral registers** - hardware doesn't lie
-4. **Test incrementally** - fix one thing at a time
-5. **Verify the fix** - always confirm it works
+2. **Use probe-rs memory access** - inspect variables and registers without modifying code
+3. **Add minimal RTT logging** - use atomic event counters for high-frequency debugging
+4. **Check peripheral registers** - hardware doesn't lie (address + offset from datasheet)
+5. **Test incrementally** - fix one thing at a time
+6. **Verify the fix** - always confirm it works
+7. **Leverage autonomy** - Claude Code can iterate: observe → fix → test → repeat
 
 ## Your Task
 
