@@ -72,15 +72,13 @@ Use this for creating individual lessons or testing the workflow.
 
 From `GDB_LESSON_PLANS.md`:
 
-| Lesson | Peripheral | GDB Techniques | Complexity | Duration |
-|--------|------------|----------------|------------|----------|
-| 01 | GPIO (LED) | Memory ops, GDB variables, function calls | ⭐⭐☆☆☆ | 60-90 min |
-| 02 | UART + DMA | Watchpoints, conditional breakpoints, call stack | ⭐⭐⭐☆☆ | 90-120 min |
-| 03 | I2C (sensor) | Reverse continue, register diff, tracepoints | ⭐⭐⭐☆☆ | 90-120 min |
-| 04 | SPI (OLED) | Python scripting, macro debugger, memory compare | ⭐⭐⭐⭐☆ | 120-150 min |
-| 05 | PWM (servo) | Disassembly, instruction stepping, performance analysis | ⭐⭐⭐☆☆ | 90-120 min |
-| 06 | Multi-peripheral | Core dumps, remote memory, checkpoint restore | ⭐⭐⭐⭐☆ | 120-180 min |
-| 07 | Production debug | Automated test harness, trace analysis, historical debugging | ⭐⭐⭐⭐⭐ | 150-240 min |
+| Lesson | What You Build | Embedded Practice | GDB Techniques | Complexity | Duration |
+|--------|----------------|-------------------|----------------|------------|----------|
+| 01 | Button + NeoPixel | Event-driven, debouncing | Memory ops, variables, function calls | ⭐⭐☆☆☆ | 60-90 min |
+| 02 | UART Memory Streamer | UART DMA, circular buffers | Watchpoints, conditional breaks | ⭐⭐⭐☆☆ | 90-120 min |
+| 03 | State Machine + IMU | Statig FSM, I2C drivers | Register diff, tracepoints, Python | ⭐⭐⭐⭐☆ | 120-150 min |
+| 04 | Task Scheduler + Atomics | Cooperative scheduling | Watchpoints on atomics, profiling | ⭐⭐⭐⭐☆ | 120-150 min |
+| 05 | Virtual HIL Testing | HAL abstraction, TDD, CI/CD | Automated testing, reverse debug | ⭐⭐⭐⭐⭐ | 150-240 min |
 
 ---
 
@@ -153,13 +151,14 @@ From `GDB_LESSON_PLANS.md`:
 
 ### Hardware
 
-- ESP32-C6 development board (USB-C cable)
-- LED + 220Ω resistor (Lesson 01)
-- FTDI UART adapter (Lesson 02)
-- I2C sensor - BME280 or MPU6050 (Lesson 03)
-- SPI OLED display - SSD1306 (Lesson 04)
-- Servo motor (Lesson 05)
+- ESP32-C6-DevKitC-1 development board (USB-C cable)
+  - Onboard button (GPIO9) - Used in all lessons
+  - Onboard NeoPixel (GPIO8) - Used in all lessons
+- FTDI UART adapter (Lesson 02+) - GPIO16 TX, GPIO17 RX
+- MPU9250 IMU (Lesson 03+) - I2C on GPIO2 SDA, GPIO11 SCL
 - Breadboard, jumper wires
+
+**Lesson 05 needs no hardware** - runs on host!
 
 ### Software
 
@@ -328,18 +327,24 @@ After running `/gen-all-lessons`, you'll have:
 ```
 esp32-c6-agentic-firmware/
 ├── lessons/
-│   ├── 01-gpio-gdb/
+│   ├── 01-button-neopixel-gdb/
 │   │   ├── src/bin/main.rs (3 progressive commits)
 │   │   ├── README.md (commit walkthrough)
 │   │   └── CLAUDE.md (pedagogy guide)
-│   ├── 02-uart-dma/
+│   ├── 02-uart-memory-stream/
 │   │   ├── src/bin/main.rs (5 progressive commits)
 │   │   └── ...
-│   ├── 03-i2c-gdb/
-│   ├── 04-spi-oled/
-│   ├── 05-pwm-servo/
-│   ├── 06-multi-peripheral/
-│   └── 07-production-debug/
+│   ├── 03-state-machine-imu/
+│   │   ├── src/bin/main.rs (6 progressive commits)
+│   │   └── ...
+│   ├── 04-task-scheduler-atomics/
+│   │   ├── src/bin/main.rs (7 progressive commits)
+│   │   └── ...
+│   └── 05-virtual-hil-testing/
+│       ├── src/lib.rs (testable business logic)
+│       ├── src/bin/real_hardware.rs (runs on ESP32-C6)
+│       ├── tests/ (integration tests on host)
+│       └── ... (8 progressive commits)
 ├── GDB_EXECUTIVE_SUMMARY.md
 ├── GDB_LESSON_PLANS.md
 ├── GDB_REFERENCE.md
@@ -348,18 +353,18 @@ esp32-c6-agentic-firmware/
 
 ### Documentation
 
-- 7 lesson READMEs with commit-by-commit walkthroughs
-- 7 lesson CLAUDE.md files with pedagogy guidance
+- 5 lesson READMEs with commit-by-commit walkthroughs
+- 5 lesson CLAUDE.md files with pedagogy guidance
 - Hardware wiring diagrams for each lesson
 - GDB command references
 - Troubleshooting guides
 
 ### Learning Path
 
-- Students can follow lessons 01 → 07 sequentially
-- Each lesson builds on previous GDB knowledge
-- Progressive commits reveal concepts step-by-step
-- Complete curriculum covers 13+ GDB capabilities
+- Students follow lessons 01 → 05 sequentially
+- Each lesson builds on previous (button → UART → state machine → tasks → HIL testing)
+- Progressive commits reveal concepts step-by-step (29 commits total)
+- Complete curriculum covers embedded best practices + 12+ GDB capabilities
 
 ---
 

@@ -1,172 +1,186 @@
-# GDB Capabilities: Executive Summary
+# GDB Executive Summary: Quick Reference
 
-**Quick reference for planning ESP32-C6 lessons with GDB debugging**
+**ESP32-C6 + esp-hal 1.0.0 - Progressive Embedded Systems Curriculum**
 
----
-
-## 13 GDB Capabilities (Quick List)
-
-| # | Capability | Use Case | Lessons |
-|---|-----------|----------|---------|
-| 1 | **Memory Inspection** | Read/write peripheral registers | All |
-| 2 | **Breakpoints** | Pause execution at specific points | All |
-| 3 | **Watchpoints** | Break when memory/register changes | 02, 07 |
-| 4 | **Variable Ops** | Read/write firmware variables | 01, 03, 05 |
-| 5 | **Call Stack** | Trace function calls, debug panics | 02, 07 |
-| 6 | **Function Calls** | Execute firmware functions from GDB | 01, 06 |
-| 7 | **GDB Variables** | Store values, do calculations | 01, 05 |
-| 8 | **Memory Dumps** | Save buffers/registers to files | 03, 07 |
-| 9 | **Python Scripting** | Custom GDB commands | 04, 06 |
-| 10 | **Reverse Debug** | Time-travel debugging | ❌ Not supported |
-| 11 | **Register Inspection** | View CPU/peripheral state | All |
-| 12 | **Signal Handling** | Catch panics/exceptions | 07 |
-| 13 | **Multi-threading** | Debug RTOS tasks | ❌ Future |
-
-**Coverage:** 11/13 capabilities (85%)
+**Philosophy**: Build a complete embedded system progressively (button → UART → state machine → tasks → HIL testing), learning GDB techniques at each stage.
 
 ---
 
-## 7-Lesson Curriculum (Overview)
+## 5-Lesson Curriculum Overview
 
-### Minimal Viable (Lessons 1-4)
-**Duration:** 5-7 hours | **GDB Coverage:** 77%
+| Lesson | Build | Embedded Practice | GDB Techniques | Duration |
+|--------|-------|-------------------|----------------|----------|
+| 01 | Button + NeoPixel | Event-driven, debouncing | Memory ops, variables, function calls | 60-90 min |
+| 02 | UART Memory Streamer | UART DMA, circular buffers | Watchpoints, conditional breaks | 90-120 min |
+| 03 | State Machine + IMU | Statig FSM, I2C drivers | Register diff, tracepoints, Python | 120-150 min |
+| 04 | Task Scheduler | Atomics, cooperative scheduling | Watchpoints on atomics, profiling | 120-150 min |
+| 05 | Virtual HIL Testing | HAL abstraction, TDD, CI/CD | Automated testing, reverse debug | 150-240 min |
 
-| Lesson | Peripheral | Duration | GDB Skills | Complexity |
-|--------|-----------|----------|------------|------------|
-| **01** | GPIO LED | 60-90 min | Memory, Vars, Function calls | ⭐⭐☆☆☆ |
-| **02** | UART+DMA | 90-120 min | Watchpoints, Conditionals, Stack | ⭐⭐⭐☆☆ |
-| **03** | I2C IMU | 90-120 min | Memory dumps, Injection | ⭐⭐⭐⭐☆ |
-| **04** | SPI SD Card | 120-150 min | Python scripting, Custom cmds | ⭐⭐⭐⭐⭐ |
-
-### Extended Curriculum (Lessons 5-7)
-**Duration:** +5-6 hours | **GDB Coverage:** 85%
-
-| Lesson | Peripheral | Duration | GDB Skills | Complexity |
-|--------|-----------|----------|------------|------------|
-| **05** | PWM+ADC | 60-90 min | Statistics, Auto-tuning | ⭐⭐⭐☆☆ |
-| **06** | Multi-peripheral | 120-180 min | Orchestration, All techniques | ⭐⭐⭐⭐⭐ |
-| **07** | Debug Scenarios | 90-120 min | Panics, Profiling, Post-mortem | ⭐⭐⭐⭐⭐ |
+**Total: 9-13.5 hours** | **Hardware: ESP32-C6-DevKitC-1 + FTDI + MPU9250**
 
 ---
 
-## Top 10 "Wow Moments" (Ranked)
+## Progressive Build Path
 
-### Must-Have 🔥🔥🔥
-1. **Function calls** (L01) - `call led.toggle()` from GDB
-2. **Custom commands** (L04) - `sd ls` reads SD card in GDB
-3. **Watchpoint detective** (L02) - Catches buffer overflow instantly
-4. **System orchestration** (L06) - Controls 4 peripherals at once
+**Lesson 01** → Simple button + NeoPixel (foundation)
+**Lesson 02** → Add UART observability for complex debugging
+**Lesson 03** → Add state machine + I2C sensor
+**Lesson 04** → Refactor into concurrent tasks with atomics
+**Lesson 05** → Test everything on host without hardware
 
-### Really Cool 🔥🔥
-5. **Memory dumps + analysis** (L03) - Binary dump → Python plots
-6. **Auto-tuning** (L05) - GDB implements PID controller
-7. **Panic debugging** (L07) - Debug real crashes with call stack
-
-### Nice to Have 🔥
-8. **Statistics dashboard** - Live telemetry counters
-9. **GPIO scanner** - Inspect all 24 pins at once
-10. **Bit math calculator** - GDB as learning tool
+**Each lesson builds on the previous**, creating a production-ready embedded system.
 
 ---
 
-## Quick Decision Matrix
+## Top 5 "Wow Moments"
 
-### "I want to teach..."
-
-**Basic GDB (1-2 hours):**
-→ Lesson 01 only (GPIO + Memory + Function calls)
-
-**Core embedded (4-6 hours):**
-→ Lessons 1-3 (GPIO, UART, I2C)
-
-**Professional skills (6-8 hours):**
-→ Lessons 1-4 (Add SPI + Python scripting)
-
-**Complete curriculum (10-15 hours):**
-→ All 7 lessons
-
-### "I have this hardware..."
-
-**Just ESP32-C6 + LED:**
-→ Lesson 01
-
-**+ UART adapter:**
-→ Lessons 01-02
-
-**+ I2C IMU (MPU9250):**
-→ Lessons 01-03
-
-**+ SD card module:**
-→ Lessons 01-04
-
-**+ Light sensor + PWM LED:**
-→ Lessons 01-05
-
-**Everything:**
-→ All 7 lessons
+1. **Function calls (L01)** - `call neopixel_set_color(255, 0, 0)` changes LED from GDB!
+2. **UART + GDB combo (L02)** - UART streams continuously, GDB catches exact moment
+3. **Python state visualizer (L03)** - Live ASCII state machine diagram in terminal
+4. **Watchpoint on atomics (L04)** - Catch exact moment shared state changes
+5. **Reverse debugging (L05)** - Step backward through code to find bug root cause
 
 ---
 
-## Technique Distribution
+## GDB Capabilities Taught
 
-### Lesson 01 (Foundation)
-- Memory inspection/writes ✅
-- GDB variables (bit math) 🔥
-- Function calls 🔥🔥🔥
+### Lesson 01: Fundamentals
+- **Memory inspection** - `x/1xw 0x6009103C` (read GPIO register)
+- **Memory writes** - `set *(uint32_t*)0x60091008 = 0x200` (write GPIO)
+- **GDB variables** - `set $gpio = 9; set $mask = 1 << $gpio` (bit math)
+- **Function calls** - `call neopixel_set_color(255, 0, 0)` (control hardware)
 
-### Lesson 02 (Async/ISR)
-- Watchpoints 🔥🔥
-- Conditional breakpoints 🔥
-- Call stack debugging 🔥
+### Lesson 02: Watchpoints & Breakpoints
+- **Watchpoints** - `watch *(uint32_t*)0x60013024` (break when memory changes)
+- **Conditional breakpoints** - `break uart_tx if addr == 0x60091000` (conditional)
+- **Memory compare** - Verify streamed data matches actual memory
 
-### Lesson 03 (Data Analysis)
-- Memory dumps 🔥
-- Variable injection 🔥
+### Lesson 03: Advanced Debugging
+- **Register diff** - Compare peripheral registers before/after operations
+- **Tracepoints** - `trace state_transition` (log without stopping)
+- **Python scripting** - Custom GDB commands for state visualization
 
-### Lesson 04 (Advanced)
-- Python scripting 🔥🔥🔥
-- Custom commands 🔥🔥
+### Lesson 04: Performance Analysis
+- **Watchpoints on atomics** - `watch CURRENT_HUE` (lock-free debugging)
+- **Call stack analysis** - `backtrace`, `up`, `down` (understand execution)
+- **Performance profiling** - Measure task execution time with cycle counters
 
-### Lesson 05 (Control)
-- Statistics dashboard 🔥
-- Automated tuning 🔥
-
-### Lesson 06 (Integration)
-- Multi-watchpoints 🔥
-- System orchestration 🔥🔥🔥
-
-### Lesson 07 (Production)
-- Panic handling 🔥
-- Performance profiling 🔥
-- Post-mortem analysis 🔥
+### Lesson 05: Automated Testing
+- **Automated test harness** - GDB scripts run tests automatically
+- **Reverse debugging** - `reverse-continue`, `reverse-step` (time travel!)
+- **Record/replay** - `rr record`, `rr replay` (deterministic replay)
 
 ---
 
-## Implementation Priority
+## Hardware Requirements
 
-### Phase 1: Core (Do First)
-✅ Lesson 01 - GPIO (foundation)
-✅ Lesson 02 - UART (async debugging)
+| Component | Used In | Cost | Notes |
+|-----------|---------|------|-------|
+| ESP32-C6-DevKitC-1 | All lessons | $15 | Onboard button (GPIO9) + NeoPixel (GPIO8) |
+| FTDI UART adapter | Lesson 02+ | $5 | GPIO16 TX, GPIO17 RX |
+| MPU9250 IMU | Lesson 03+ | $5 | I2C: GPIO2 SDA, GPIO11 SCL |
+| **Total** | | **$25** | |
 
-### Phase 2: Essential (Do Next)
-⏳ Lesson 03 - I2C (data analysis)
-⏳ Lesson 04 - SPI (Python scripting)
-
-### Phase 3: Advanced (Optional)
-⏳ Lesson 05 - PWM+ADC
-⏳ Lesson 06 - Multi-peripheral
-⏳ Lesson 07 - Production debugging
+**Lesson 05 needs no hardware** - runs on host!
 
 ---
 
-## Key Takeaways
+## Decision Matrix: Which Lesson Teaches What?
 
-1. **Start simple:** Lesson 01 teaches 3 core GDB techniques
-2. **Build progressively:** Each lesson adds 2-3 new techniques
-3. **One wow per lesson:** Keep students engaged
-4. **Real hardware:** Every lesson uses actual peripherals
-5. **77% coverage in 4 lessons:** Efficient learning curve
+| Concept | Lesson | Why |
+|---------|--------|-----|
+| **GDB basics** | 01 | Start simple (button + LED) |
+| **UART debugging** | 02 | Add observability before complexity |
+| **State machines** | 03 | Real embedded pattern |
+| **Atomics** | 04 | Lock-free concurrency |
+| **HAL abstraction** | 05 | Test without hardware |
+| **I2C drivers** | 03 | Sensor integration |
+| **Task scheduling** | 04 | Split monolith into tasks |
+| **TDD** | 05 | Professional workflow |
+| **CI/CD** | 05 | Automate everything |
 
 ---
 
-**For detailed info:** See `GDB_LESSON_PLANS.md` and `GDB_REFERENCE.md`
+## UART + GDB Combined Strategy
+
+**UART**: Continuous monitoring (big picture)
+- Stream GPIO registers every 50ms
+- Stream state machine state + sensor data
+- Stream task execution times
+- Machine-parseable format for analysis
+
+**GDB**: Precise breakpoints (exact moments)
+- Break when specific memory address changes (watchpoints)
+- Break only when condition is true (conditional breakpoints)
+- Inspect registers/memory at exact moment of interest
+- Step through code instruction-by-instruction
+
+**Power combo**: UART shows trends, GDB catches exact moments!
+
+---
+
+## Embedded Best Practices Taught
+
+1. **Event-driven architecture** (L01) - Edge detection, not polling
+2. **Debouncing** (L01) - Clean input handling
+3. **UART DMA** (L02) - Non-blocking high-speed streaming
+4. **Circular buffers** (L02) - Handle streaming without data loss
+5. **Statig state machines** (L03) - Macro-based hierarchical FSM
+6. **I2C drivers** (L03) - Register-based sensor integration
+7. **Fixed-point math** (L03) - HSV→RGB without floats
+8. **Cooperative scheduling** (L04) - Fixed-interval task execution
+9. **Lock-free atomics** (L04) - No mutexes, no critical sections
+10. **HAL abstraction** (L05) - Separate business logic from hardware
+11. **Dependency injection** (L05) - Traits instead of concrete types
+12. **TDD** (L05) - Write tests first, hardware second
+13. **CI/CD** (L05) - Automate testing on every commit
+
+---
+
+## Claude's Teaching Approach
+
+**Collaborative investigation**:
+- "What value do you see in the GPIO_IN register?"
+- "Try writing to address 0x60091008. What happens?"
+
+**Guided discovery**:
+- "Let's use GDB to find out why the button isn't working"
+- "Set a watchpoint on the UART buffer. What do you notice?"
+
+**Hands-on learning**:
+- "Call this function from GDB and watch the LED"
+- "Step through the I2C transaction and inspect the registers"
+
+**Progressive complexity**:
+- Lesson 01: Basic GDB commands
+- Lesson 02: Watchpoints and breakpoints
+- Lesson 03: Advanced techniques (tracepoints, Python)
+- Lesson 04: Performance profiling
+- Lesson 05: Automated testing and reverse debugging
+
+---
+
+## Quick Start
+
+```bash
+# Read detailed lesson plans
+cat GDB_LESSON_PLANS.md
+
+# Generate all lessons sequentially
+/gen-all-lessons
+
+# Or generate one lesson at a time
+/gen-lesson "Create Lesson 01: Button + NeoPixel + GDB"
+```
+
+---
+
+## Files
+
+- **GDB_LESSON_PLANS.md** (27KB) - Complete curriculum with commit structures
+- **GDB_REFERENCE.md** (29KB) - All GDB commands and examples
+- **LESSON_GENERATION_GUIDE.md** (15KB) - How to use generation commands
+
+---
+
+**Last Updated**: 2025-11-14

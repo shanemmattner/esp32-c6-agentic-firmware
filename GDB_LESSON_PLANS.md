@@ -1,680 +1,914 @@
-# GDB Lesson Plans: Detailed Breakdown
+# GDB Lesson Plans: Embedded Best Practices + Progressive Complexity
 
-**Complete lesson-by-lesson implementation guide**
+**ESP32-C6 + esp-hal 1.0.0 - From GDB Basics to Production HIL Testing**
+
+**Philosophy**: Build a complete embedded system progressively, learning GDB techniques at each stage while developing real production patterns:
+1. **GDB fundamentals** - Claude drives development with basic debugging
+2. **UART + Memory streaming** - Add observability for complex debugging
+3. **State machines + I2C** - Event-driven architecture with sensor integration
+4. **Task scheduler + Atomics** - Split monolith into concurrent tasks
+5. **Virtual HIL testing** - Test complete system without hardware
+
+**Hardware**: ESP32-C6-DevKitC-1 (GPIO9 button + GPIO8 NeoPixel onboard) + MPU9250 IMU
 
 ---
 
-## Lesson 01: GPIO + GDB Fundamentals
+## Lesson 01: GDB Fundamentals with Button + NeoPixel
 
 ### Overview
-**Peripheral:** GPIO (LED control)
+**Focus:** Claude-driven development with basic GDB, event-driven programming
 **Duration:** 60-90 minutes
 **Complexity:** ⭐⭐☆☆☆
-**Hardware:** ESP32-C6 + LED + 220Ω resistor
+**Hardware:** ESP32-C6-DevKitC-1 (all onboard - GPIO9 button, GPIO8 NeoPixel)
 
-### GDB Techniques (3)
-1. **Memory inspection/writes** - Read/write GPIO registers
-2. **GDB variables** - Bit math calculator, expressions
-3. **Function calls** - Execute firmware functions from GDB
+### What You'll Build
+Simple button-controlled NeoPixel color cycler. Press button → cycle through red, green, blue.
+
+### Embedded Practices
+1. **Event-driven architecture** - Edge detection for button presses
+2. **Debouncing** - Clean input handling
+3. **RMT peripheral** - Timing-critical WS2812 control
+4. **Memory-mapped I/O** - Understanding GPIO registers
+
+### GDB Techniques (3) - Claude Teaches You
+1. **Memory inspection/writes** - Read/write GPIO registers to see button state
+2. **GDB variables** - Bit math calculator (`set $gpio = 9; set $mask = 1 << $gpio`)
+3. **Function calls** - Live hardware control: `call neopixel_set_color(255, 0, 0)`
+
+### Commit Structure (3 commits)
+
+**Commit 1: Broken button handler**
+- Button press doesn't reliably change color
+- Missing debouncing → bounces register multiple presses
+- Claude guides: "Let's use GDB to inspect GPIO register during button press"
+
+**Commit 2: GDB-controlled NeoPixel**
+- Remove all button code, empty main loop
+- Claude teaches bit manipulation via GDB:
+  ```gdb
+  set $neopixel_gpio = 8
+  set $mask = 1 << $neopixel_gpio
+  # Manually control LED from GDB
+  call neopixel_set_color(255, 0, 0)  # Red
+  call neopixel_set_color(0, 255, 0)  # Green
+  ```
+- "Wow moment": Control hardware without firmware changes!
+
+**Commit 3: Add proper debouncing**
+- Claude explains: "Let's add edge detection and debouncing"
+- Implement clean button handler
+- Full working solution
+
+### Claude's Teaching Approach
+- **Collaborative investigation**: "What value do you see in the GPIO_IN register?"
+- **Guided discovery**: "Try writing to address 0x60091008. What happens?"
+- **Bit math practice**: "Calculate the GPIO mask for pin 9 using GDB variables"
 
 ### Learning Objectives
-- Understand memory-mapped I/O
-- Use GDB to inspect hardware registers
-- Control hardware without firmware code
-- Call Rust functions from debugger
+- Understand memory-mapped I/O through hands-on GDB inspection
+- Master basic GDB commands (examine, set, call)
+- Learn proper button debouncing patterns
+- Claude drives development, you learn by doing
 
-### Commit Structure
+---
 
-**Commit 1: "Broken Firmware"**
-- LED blink code that doesn't work
-- Missing GPIO ENABLE configuration
-- Investigation with GDB reveals the issue
+## Lesson 02: UART Terminal + Arbitrary Memory Streamer
 
-**Commit 2: "GDB Register Control"**
-- Remove LED code, use GDB to control
-- Teach bit math with GDB variables
-- Direct register manipulation
+### Overview
+**Focus:** Add UART observability for complex debugging, stream any memory location
+**Duration:** 90-120 minutes
+**Complexity:** ⭐⭐⭐☆☆
+**Hardware:** ESP32-C6-DevKitC-1 + FTDI UART adapter (GPIO16 TX, GPIO17 RX)
 
-**Commit 3: "Function Calls"**
-- Add led_on(), led_off(), led_toggle() functions
-- Call from GDB while firmware paused
-- Mind-blowing "remote control" moment
+### What You'll Build
+UART terminal that can stream any memory address to host for analysis:
+- Stream GPIO register values
+- Monitor button state changes
+- Watch NeoPixel color values
+- Arbitrary memory window streaming (choose start address + length)
 
-### Demo Scripts
+### Embedded Practices
+1. **UART DMA** - Non-blocking high-speed streaming
+2. **Circular buffers** - Handle streaming without losing data
+3. **Memory-safe streaming** - Validate addresses before reading
+4. **Structured output** - Machine-parseable format for analysis
 
-**GDB Bit Math:**
-```gdb
-set $gpio = 12
-set $mask = 1 << $gpio
-print/x $mask  # 0x1000
-print/t $mask  # Binary: 1000000000000
+### GDB Techniques (3)
+1. **Watchpoints** - Break when UART TX buffer overflows
+2. **Conditional breakpoints** - Only break on specific memory addresses
+3. **Memory compare** - Verify streamed data matches actual memory
 
-# Apply to hardware
-set *(uint32_t*)0x60091024 = $mask  # Enable
-set *(uint32_t*)0x60091008 = $mask  # LED ON
+### Commit Structure (5 commits)
+
+**Commit 1: Basic UART init**
+- Simple UART TX: `uart.write_str("Hello\n")`
+- Blocking writes only
+
+**Commit 2: Add DMA for non-blocking streaming**
+- Configure UART with DMA
+- Stream at high speed without blocking main loop
+- Claude guides: "Let's add watchpoint to catch buffer overflow"
+
+**Commit 3: Arbitrary memory streamer**
+- Command protocol: `STREAM <addr> <len> <interval_ms>`
+- Example: `STREAM 0x60091000 64 100` → Stream 64 bytes from GPIO base every 100ms
+- Claude teaches: "Use conditional breakpoints to debug specific addresses"
+
+**Commit 4: Structured output format**
+- Output: `[timestamp_ms] ADDR:0x60091000 DATA:0x12345678`
+- Machine-parseable for host-side analysis
+- Claude shows memory compare: Verify streamed data is correct
+
+**Commit 5: Add safety checks**
+- Validate memory address ranges (prevent reading unmapped memory)
+- Handle UART errors gracefully
+- Add buffer overflow protection
+
+### Demo: Debugging Button State with UART + GDB
+
+**UART streaming:**
+```
+STREAM 0x6009103C 4 50  # Stream GPIO_IN register every 50ms
+[0] ADDR:0x6009103C DATA:0x00000200  # Button not pressed (bit 9 = 1)
+[50] ADDR:0x6009103C DATA:0x00000000  # Button pressed (bit 9 = 0)
+[100] ADDR:0x6009103C DATA:0x00000200  # Button released
 ```
 
-**Function Calls:**
+**GDB watchpoint:**
 ```gdb
-# Pause firmware
-Ctrl-C
+# Break when GPIO_IN changes
+watch *(uint32_t*)0x6009103C
 
-# Control LED from GDB
-call led_on()    # LED turns on!
-call led_off()   # LED turns off!
-call led_toggle()  # LED toggles!
-
-# Resume firmware
 continue
+# Hardware watchpoint 1: *(uint32_t*)0x6009103C
+# Old value = 512
+# New value = 0
 ```
 
-### Why These 3 Techniques
-- **Memory ops** - Foundation for everything
-- **GDB variables** - Immediately useful for all bit manipulation
-- **Function calls** - Most impressive, shows GDB's true power
-
-### Skip for Later
-- Watchpoints → Save for Lesson 02 (async debugging)
-- Python scripting → Save for Lesson 04 (advanced)
-- Call stack → Save for Lesson 02 (panic debugging)
-
----
-
-## Lesson 02: UART + DMA
-
-### Overview
-**Peripheral:** UART0 with DMA streaming
-**Duration:** 90-120 minutes
-**Complexity:** ⭐⭐⭐☆☆
-**Hardware:** ESP32-C6 + FTDI UART adapter
-
-### GDB Techniques (3)
-1. **Watchpoints** - Break when UART FIFO overflows
-2. **Conditional breakpoints** - Only break on errors
-3. **Call stack** - Debug panic in ISR
+**Power combo**: UART streams continuously, GDB catches exact moment of change!
 
 ### Learning Objectives
-- Debug asynchronous hardware
-- Catch buffer overflows in real-time
-- Analyze ISR panics
-- Understand circular buffers
-
-### Peripheral Details
-- UART0 @ 921600 baud
-- DMA circular buffer (1024 bytes)
-- High-speed variable streaming (100 vars/sec)
-- Error detection (overflow, framing)
-
-### Demo Scripts
-
-**Watchpoint on UART Status:**
-```gdb
-# Break when FIFO overflows
-watch *(uint32_t*)0x6000001C
-commands
-  set $status = *(uint32_t*)0x6000001C
-  if ($status & (1 << 3)) != 0
-    printf "⚠️  UART FIFO OVERFLOW!\n"
-    backtrace
-    # Stop for inspection
-  else
-    continue
-  end
-end
-```
-
-**Conditional Breakpoint:**
-```gdb
-# Only break on errors, skip normal operation
-break uart_isr if error_flags != 0
-```
-
-**Panic Analysis:**
-```gdb
-catch panic
-commands
-  printf "PANIC in ISR!\n"
-  backtrace full
-  print uart_buffer
-  print dma_descriptor
-end
-```
-
-### Why These 3 Techniques
-- **Watchpoints** - Shine with async hardware
-- **Conditionals** - Essential for ISR debugging (avoid breakpoint spam)
-- **Call stack** - Critical for panic analysis
+- Build production-quality UART terminal for debugging
+- Use UART + GDB together (UART for streaming, GDB for precise breakpoints)
+- Develop arbitrary memory inspection capability
+- Claude teaches watchpoints and memory compare techniques
 
 ---
 
-## Lesson 03: I2C + IMU Sensor
+## Lesson 03: State Machine + IMU Sensor Integration
 
 ### Overview
-**Peripheral:** I2C1 + MPU9250 (9-axis IMU)
-**Duration:** 90-120 minutes
-**Complexity:** ⭐⭐⭐⭐☆
-**Hardware:** ESP32-C6 + MPU9250 breakout
-
-### GDB Techniques (2)
-1. **Memory dumps** - Capture sensor data to file
-2. **Variable injection** - Test sensor fusion algorithms
-
-### Learning Objectives
-- Capture large datasets for analysis
-- Inject test data for algorithm debugging
-- External data analysis with Python/MATLAB
-- Debug sensor fusion calculations
-
-### Peripheral Details
-- MPU9250 over I2C1 @ 400 kHz
-- 9-axis data (3-axis accel, gyro, mag)
-- FIFO buffering (1024 samples)
-- Sensor fusion (quaternions, Euler angles)
-
-### Demo Scripts
-
-**Capture 1000 Readings:**
-```gdb
-# Capture sensor data to binary file
-set $i = 0
-while $i < 1000
-  call mpu9250_read()
-  dump append binary memory sensor_data.bin &accel_data sizeof(Vector3)
-  set $i = $i + 1
-  if $i % 100 == 0
-    printf "Captured %d samples...\n", $i
-  end
-end
-
-printf "Done! Analyze with: python3 plot_sensor.py sensor_data.bin\n"
-```
-
-**Inject Test Data:**
-```gdb
-# Test sensor fusion with known inputs
-set accel_x = 1000   # 1g upward
-set accel_y = 0
-set accel_z = 0
-call update_sensor_fusion()
-print quaternion  # Check output
-
-# Test edge case: free fall
-set accel_x = 0
-set accel_y = 0
-set accel_z = 0
-call update_sensor_fusion()
-print quaternion  # Should detect free fall
-```
-
-**Python Analysis:**
-```python
-# plot_sensor.py
-import numpy as np
-import matplotlib.pyplot as plt
-
-data = np.fromfile('sensor_data.bin', dtype=np.float32)
-data = data.reshape(-1, 3)  # 3 axes
-
-plt.plot(data[:, 0], label='X')
-plt.plot(data[:, 1], label='Y')
-plt.plot(data[:, 2], label='Z')
-plt.legend()
-plt.title('Accelerometer Data')
-plt.xlabel('Sample')
-plt.ylabel('Acceleration (mg)')
-plt.show()
-```
-
-### Why These 2 Techniques
-- **Memory dumps** - Essential for data analysis
-- **Variable injection** - Perfect for testing complex algorithms
-
----
-
-## Lesson 04: SPI + SD Card
-
-### Overview
-**Peripheral:** SPI1 + SD card filesystem
+**Focus:** Statig state machine library, I2C sensor drivers, event-driven architecture
 **Duration:** 120-150 minutes
-**Complexity:** ⭐⭐⭐⭐⭐
-**Hardware:** ESP32-C6 + SD card module
+**Complexity:** ⭐⭐⭐⭐☆
+**Hardware:** ESP32-C6 + MPU9250 IMU (I2C on GPIO2 SDA, GPIO11 SCL)
 
-### GDB Techniques (2)
-1. **Python scripting** - Custom GDB commands
-2. **Memory dumps** - Inspect FAT32 structures
+### What You'll Build
+Color navigator state machine controlled by button + IMU tilt:
+- **State 1 (Idle)**: NeoPixel off
+- **State 2 (ColorSelect)**: Button cycles hue (0°→120°→240°→0°)
+- **State 3 (BrightnessAdjust)**: IMU tilt controls brightness (tilt left = dim, right = bright)
+- UART streams: current state, hue, brightness, IMU readings
 
-### Learning Objectives
-- Create custom GDB commands
-- Professional debugging workflow
-- Filesystem debugging
-- Binary data inspection
+### Embedded Practices
+1. **Statig state machines** - Macro-based hierarchical FSM
+2. **I2C sensor drivers** - MPU9250 accelerometer integration
+3. **Event-driven architecture** - Button and IMU generate events
+4. **Fixed-point math** - No floats, HSV→RGB conversion with integers
 
-### Peripheral Details
-- SPI1 @ 20 MHz
-- SD card in SPI mode
-- FAT32 filesystem
-- Read/write sectors
-- Directory operations
+### GDB Techniques (3)
+1. **Register diff** - Compare I2C peripheral registers before/after transactions
+2. **Tracepoints** - Log all state transitions without stopping
+3. **Python GDB script** - Auto-visualize state machine diagram
 
-### Demo Scripts
+### Commit Structure (6 commits)
 
-**Custom SD Card Commands:**
+**Commit 1: Add I2C + MPU9250 driver**
+- Read WHO_AM_I register (should return 0x71)
+- Read accelerometer X/Y/Z values
+- Stream to UART: `IMU: x=-512 y=1024 z=16384`
+
+**Commit 2: Define statig state machine**
+```rust
+#[derive(Debug)]
+enum State {
+    Idle,
+    ColorSelect { hue: u16 },      // hue: 0-359
+    BrightnessAdjust { hue: u16, brightness: u8 },  // brightness: 0-255
+}
+
+#[derive(Debug)]
+enum Event {
+    ButtonPress,
+    ImuTilt(i16),  // -32768 to 32767 (X-axis)
+}
+```
+- Minimal transitions, no logic yet
+- Claude guides: "Let's use tracepoints to log every state transition"
+
+**Commit 3: Implement state transitions**
+- Button press: `Idle → ColorSelect → BrightnessAdjust → Idle`
+- In ColorSelect: Button cycles hue (0° → 120° → 240° → 0°)
+- In BrightnessAdjust: IMU tilt controls brightness
+
+**Commit 4: Add UART state streaming**
+- Stream current state, hue, brightness every 100ms
+- Example: `[1000] STATE:ColorSelect HUE:120 BRIGHT:0`
+- Combined with memory streaming: See state machine + registers
+
+**Commit 5: GDB register diff for I2C debugging**
+- Claude teaches: "Let's snapshot I2C registers before/after transaction"
+```gdb
+# Before I2C read
+set $i2c_status_before = *(uint32_t*)0x60013008
+
+# Step through transaction
+next
+
+# After
+set $i2c_status_after = *(uint32_t*)0x60013008
+print/x $i2c_status_before ^ $i2c_status_after  # See what changed
+```
+
+**Commit 6: Python GDB state visualizer**
 ```python
-# In GDB Python console
-python
-
+# state_viz.py
 import gdb
 
-class SDCard(gdb.Command):
-    """SD card operations: sd read|write|ls|cat"""
-
+class StateMonitor(gdb.Breakpoint):
     def __init__(self):
-        super().__init__("sd", gdb.COMMAND_USER)
+        super().__init__("state_transition")
 
-    def invoke(self, arg, from_tty):
-        args = arg.split()
-        if not args:
-            print("Usage: sd read|write|ls|cat")
-            return
+    def stop(self):
+        state = str(gdb.parse_and_eval("current_state"))
+        print(f"┌─ STATE CHANGE ─┐")
+        print(f"│ {state:^15} │")
+        print(f"└────────────────┘")
+        return False  # Don't stop execution
 
-        cmd = args[0]
+StateMonitor()
+```
+- Auto-prints ASCII diagram on every state change
+- "Wow moment": Live state machine visualization!
 
-        if cmd == "read":
-            sector = int(args[1])
-            gdb.execute(f"call sd_read_sector({sector})")
-            gdb.execute("x/128xw sector_buffer")
+### UART + GDB Combined Debugging
 
-        elif cmd == "ls":
-            gdb.execute("call sd_list_dir()")
-            # Print directory entries
-            count = int(gdb.parse_and_eval("dir_entry_count"))
-            for i in range(count):
-                name = gdb.parse_and_eval(f"dir_entries[{i}].name")
-                size = gdb.parse_and_eval(f"dir_entries[{i}].size")
-                print(f"{name.string():20s} {size:10d} bytes")
+**UART output (continuous streaming):**
+```
+[0] STATE:Idle HUE:0 BRIGHT:0 IMU:x=0 y=0 z=16384
+[100] STATE:Idle HUE:0 BRIGHT:0 IMU:x=-200 y=50 z=16300
+[200] STATE:ColorSelect HUE:0 BRIGHT:0 IMU:x=-250 y=60 z=16280
+[300] STATE:ColorSelect HUE:120 BRIGHT:0 IMU:x=-300 y=70 z=16260
+[400] STATE:BrightnessAdjust HUE:120 BRIGHT:128 IMU:x=-5000 y=100 z=14000
+```
 
-        elif cmd == "cat":
-            filename = args[1]
-            gdb.execute(f'call sd_read_file("{filename}")')
-            gdb.execute("x/s file_buffer")
-
-        elif cmd == "write":
-            filename = args[1]
-            data = ' '.join(args[2:])
-            gdb.execute(f'call sd_write_file("{filename}", "{data}")')
-            print(f"Wrote to {filename}")
-
-SDCard()
+**GDB tracepoint (precise event capture):**
+```gdb
+# Set tracepoint on state transitions
+trace state_transition
+actions
+  collect current_state
+  collect event
+  collect hue
+  collect brightness
 end
+
+tstart
+continue
+
+# Later, analyze trace
+tstop
+tfind start
+# Replay all state transitions offline
 ```
 
-**Usage:**
-```gdb
-# List files on SD card
-sd ls
-
-# Read file
-sd cat README.txt
-
-# Read raw sector
-sd read 42
-
-# Write file
-sd write test.txt Hello from GDB!
-```
-
-**FAT32 Debugging:**
-```gdb
-# Inspect FAT32 boot sector
-call sd_read_sector(0)
-x/128xw sector_buffer
-
-# Look for FAT32 signature
-x/4xb sector_buffer+510  # Should be 0x55 0xAA
-```
-
-### Why These 2 Techniques
-- **Python scripting** - Professional tooling, huge productivity boost
-- **Memory dumps** - Critical for filesystem debugging
+### Learning Objectives
+- Build production state machine with statig
+- Integrate I2C sensor (MPU9250) with proper error handling
+- Combine UART streaming (big picture) + GDB precision (exact moments)
+- Claude teaches register diff and Python scripting
 
 ---
 
-## Lesson 05: PWM + ADC
+## Lesson 04: Task Scheduler + Atomics - Splitting the Monolith
 
 ### Overview
-**Peripheral:** LEDC PWM + ADC (light sensor)
-**Duration:** 60-90 minutes
-**Complexity:** ⭐⭐⭐☆☆
-**Hardware:** ESP32-C6 + photoresistor + LED
+**Focus:** Refactor monolithic loop into concurrent tasks with lock-free atomics
+**Duration:** 120-150 minutes
+**Complexity:** ⭐⭐⭐⭐☆
+**Hardware:** ESP32-C6 + MPU9250 + UART
 
-### GDB Techniques (2)
-1. **Statistics dashboard** - Live telemetry display
-2. **Automated tuning** - GDB implements control loop
+### What You'll Build
+Split Lesson 03's monolithic state machine into independent tasks:
+- **button_task** (10ms) - Read GPIO, generate ButtonPress events
+- **imu_task** (50ms) - Read MPU9250, generate ImuTilt events
+- **state_machine_task** (20ms) - Process events, update state
+- **led_task** (100ms) - Read state, update NeoPixel
+- **uart_task** (100ms) - Stream telemetry
+
+All tasks communicate via **lock-free atomics** (no mutexes, no critical sections).
+
+### Embedded Practices
+1. **Cooperative task scheduler** - Fixed-interval task execution
+2. **Lock-free concurrency** - AtomicU16, AtomicBool for shared state
+3. **Task independence** - No task directly calls another
+4. **Bounded execution time** - Each task completes in known time
+
+### GDB Techniques (3)
+1. **Watchpoints on atomics** - Break when shared state changes
+2. **Call stack analysis** - Understand task execution order
+3. **Performance profiling** - Measure task execution time
+
+### Commit Structure (7 commits)
+
+**Commit 1: Start with monolithic Lesson 03 code**
+- All code in main loop
+- State machine, I2C, GPIO, NeoPixel all mixed together
+- Hard to reason about timing, hard to test
+
+**Commit 2: Extract task functions (but still call directly)**
+```rust
+fn button_task(button: &Input, event_queue: &mut Vec<Event>) { }
+fn imu_task(i2c: &mut I2C, event_queue: &mut Vec<Event>) { }
+fn state_machine_task(events: &[Event], state: &mut State) { }
+fn led_task(state: &State, neopixel: &mut NeoPixel) { }
+```
+- Functions exist, but main loop still calls them directly
+- No concurrency yet
+
+**Commit 3: Add simple scheduler**
+```rust
+struct Task {
+    last_run: u64,
+    interval_ms: u64,
+    func: fn(),
+}
+
+fn scheduler_run(tasks: &mut [Task]) {
+    for task in tasks {
+        if elapsed_since(task.last_run) >= task.interval_ms {
+            (task.func)();
+            task.last_run = current_time_ms();
+        }
+    }
+}
+```
+- Tasks run at fixed intervals
+- But: shared state via mutable globals → race conditions!
+
+**Commit 4: Replace globals with atomics**
+```rust
+// Shared state (lock-free!)
+static BUTTON_PRESSED: AtomicBool = AtomicBool::new(false);
+static IMU_X_AXIS: AtomicI16 = AtomicI16::new(0);
+static CURRENT_HUE: AtomicU16 = AtomicU16::new(0);
+static CURRENT_BRIGHTNESS: AtomicU8 = AtomicU8::new(0);
+
+// button_task writes
+BUTTON_PRESSED.store(true, Ordering::Relaxed);
+
+// state_machine_task reads
+if BUTTON_PRESSED.swap(false, Ordering::Relaxed) {
+    // Handle button press event
+}
+```
+- No locks, no critical sections, no allocation!
+- Claude teaches: "Let's use watchpoints to see atomic changes in real-time"
+
+**Commit 5: GDB watchpoint on atomics**
+```gdb
+# Find address of CURRENT_HUE
+info variables CURRENT_HUE
+# Let's say it's at 0x3FC90000
+
+# Set watchpoint
+watch *(uint16_t*)0x3FC90000
+
+continue
+# Watchpoint 1: *(uint16_t*)0x3FC90000
+# Old value = 0
+# New value = 120  ← Caught exact moment hue changed!
+```
+
+**Commit 6: Call stack analysis**
+```gdb
+# Break in led_task
+break led_task
+
+continue
+
+# Show call stack
+backtrace
+# #0 led_task()
+# #1 scheduler_run()
+# #2 main()
+
+# Step up to scheduler
+up
+# Now at scheduler_run()
+
+# Inspect which task is next
+print tasks[1]  # imu_task
+```
+
+**Commit 7: Performance profiling**
+```rust
+// Add timing instrumentation
+static TASK_CYCLES: [AtomicU64; 5] = [/* ... */];
+
+fn button_task() {
+    let start = read_cycle_counter();
+
+    // Task logic...
+
+    let end = read_cycle_counter();
+    TASK_CYCLES[0].store(end - start, Ordering::Relaxed);
+}
+```
+
+**GDB script to monitor:**
+```gdb
+define show_task_times
+  printf "Task execution times (cycles):\n"
+  printf "  button_task:  %lu\n", TASK_CYCLES[0]
+  printf "  imu_task:     %lu\n", TASK_CYCLES[1]
+  printf "  state_task:   %lu\n", TASK_CYCLES[2]
+  printf "  led_task:     %lu\n", TASK_CYCLES[3]
+  printf "  uart_task:    %lu\n", TASK_CYCLES[4]
+end
+
+# Run periodically
+break scheduler_run
+commands
+  silent
+  show_task_times
+  continue
+end
+```
+
+### UART Streaming for Task Monitoring
+
+**Add task telemetry to UART:**
+```
+[0] TASKS: btn=50us imu=250us state=100us led=300us uart=500us
+[100] TASKS: btn=52us imu=248us state=98us led=305us uart=490us
+```
+
+**GDB for precise breakpoints:**
+- UART shows big picture (all task times)
+- GDB catches exact moment a task exceeds budget
 
 ### Learning Objectives
-- Real-time control systems
-- Automatic parameter tuning
-- Feedback loops with GDB
-- Live data visualization
+- Refactor monolithic code into task-based architecture
+- Use atomics for lock-free inter-task communication
+- Profile task execution times
+- Combine UART (continuous monitoring) + GDB (precise analysis)
+- Claude teaches watchpoints, call stack, and profiling
 
-### Peripheral Details
-- LEDC PWM @ 5 kHz (LED brightness)
-- ADC @ 12-bit (light sensor)
-- Closed-loop brightness control
-- PID-like algorithm
+---
 
-### Demo Scripts
+## Lesson 05: Virtual HIL Testing Without Hardware
 
-**Automated Brightness Control:**
+### Overview
+**Focus:** Test complete system (all tasks, state machine, "sensors") without ESP32-C6 hardware
+**Duration:** 150-240 minutes
+**Complexity:** ⭐⭐⭐⭐⭐
+**Hardware:** None! Runs on host (macOS/Linux/Windows)
+
+### What You'll Build
+Hardware-in-the-Loop (HIL) test framework that simulates:
+- **Virtual button** - Inject button press events
+- **Virtual IMU** - Provide fake accelerometer readings
+- **Virtual NeoPixel** - Capture color commands, verify correctness
+- **Virtual UART** - Capture and analyze output
+- **Time control** - Speed up/slow down/pause time for deterministic testing
+
+Run full integration tests on host, catch bugs before flashing to hardware!
+
+### Embedded Practices
+1. **Hardware abstraction layer (HAL)** - Separate business logic from hardware
+2. **Dependency injection** - Pass traits instead of concrete types
+3. **Mocking** - Virtual peripherals implement same traits as real hardware
+4. **Deterministic testing** - Control time for reproducible tests
+5. **CI/CD integration** - Run tests on every commit
+
+### GDB Techniques (3)
+1. **Automated test harness** - GDB script runs tests, checks assertions
+2. **Reverse debugging** - Step backward to find bug root cause
+3. **Record/replay** - Record test execution, replay to find race conditions
+
+### Architecture: HAL Abstraction
+
+**Before (Lesson 04 - tightly coupled to hardware):**
+```rust
+fn button_task(peripherals: &Peripherals) {
+    let state = peripherals.GPIO9.is_low();  // Directly reads hardware
+    // ...
+}
+```
+
+**After (Lesson 05 - abstracted):**
+```rust
+// Define traits
+trait ButtonInput {
+    fn is_pressed(&self) -> bool;
+}
+
+trait ImuSensor {
+    fn read_accel(&mut self) -> (i16, i16, i16);
+}
+
+trait LedOutput {
+    fn set_color(&mut self, r: u8, g: u8, b: u8);
+}
+
+// Task now accepts any type implementing trait
+fn button_task<B: ButtonInput>(button: &B, events: &mut EventQueue) {
+    if button.is_pressed() {
+        events.push(Event::ButtonPress);
+    }
+}
+```
+
+**Real hardware implementation:**
+```rust
+struct HardwareButton {
+    pin: Input<'static>,
+}
+
+impl ButtonInput for HardwareButton {
+    fn is_pressed(&self) -> bool {
+        self.pin.is_low()
+    }
+}
+```
+
+**Virtual implementation (for testing):**
+```rust
+struct VirtualButton {
+    pressed: bool,
+}
+
+impl ButtonInput for VirtualButton {
+    fn is_pressed(&self) -> bool {
+        self.pressed
+    }
+}
+```
+
+### Commit Structure (8 commits)
+
+**Commit 1: Extract HAL traits**
+- Define ButtonInput, ImuSensor, LedOutput, UartOutput traits
+- Refactor tasks to accept trait objects instead of concrete types
+
+**Commit 2: Implement real hardware wrappers**
+```rust
+struct HardwareButton { pin: Input<'static> }
+struct HardwareImu { i2c: I2C<'static> }
+struct HardwareNeoPixel { rmt: RMT }
+```
+- Firmware still works exactly as before
+- But now abstracted!
+
+**Commit 3: Implement virtual hardware (mocks)**
+```rust
+struct VirtualButton {
+    pressed: bool,
+}
+
+struct VirtualImu {
+    accel_x: i16,
+    accel_y: i16,
+    accel_z: i16,
+}
+
+struct VirtualNeoPixel {
+    last_color: (u8, u8, u8),  // Capture what color was set
+}
+```
+- Can run tasks on host!
+
+**Commit 4: Add virtual time control**
+```rust
+struct VirtualClock {
+    current_time_ms: u64,
+}
+
+impl VirtualClock {
+    fn advance(&mut self, ms: u64) {
+        self.current_time_ms += ms;
+    }
+
+    fn now(&self) -> u64 {
+        self.current_time_ms
+    }
+}
+```
+- Deterministic testing: control exactly when tasks run
+
+**Commit 5: Write integration tests**
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_button_press_cycles_hue() {
+        // Setup virtual hardware
+        let mut button = VirtualButton { pressed: false };
+        let mut imu = VirtualImu { accel_x: 0, accel_y: 0, accel_z: 16384 };
+        let mut led = VirtualNeoPixel { last_color: (0, 0, 0) };
+        let mut clock = VirtualClock { current_time_ms: 0 };
+
+        let mut state = State::Idle;
+
+        // Simulate button press
+        button.pressed = true;
+        button_task(&button, &mut events);
+        state_machine_task(&events, &mut state);
+
+        // Check state changed
+        assert_eq!(state, State::ColorSelect { hue: 0 });
+
+        // Press again → hue advances
+        button.pressed = false;  // Release
+        clock.advance(20);
+        button.pressed = true;
+        button_task(&button, &mut events);
+        state_machine_task(&events, &mut state);
+
+        assert_eq!(state, State::ColorSelect { hue: 120 });
+    }
+
+    #[test]
+    fn test_imu_tilt_controls_brightness() {
+        // Setup
+        let mut imu = VirtualImu { accel_x: -16384, accel_y: 0, accel_z: 0 };  // Full left tilt
+        let mut led = VirtualNeoPixel { last_color: (0, 0, 0) };
+
+        let mut state = State::BrightnessAdjust { hue: 120, brightness: 128 };
+
+        // Run IMU task
+        imu_task(&mut imu, &mut events);
+        state_machine_task(&events, &mut state);
+
+        // Brightness should decrease
+        if let State::BrightnessAdjust { brightness, .. } = state {
+            assert!(brightness < 128);
+        }
+    }
+}
+```
+
+**Run on host:**
+```bash
+cargo test --lib
+# All tests run on host, no hardware needed!
+```
+
+**Commit 6: GDB automated test harness**
 ```gdb
-# GDB implements a control loop!
-define auto_brightness
-  set $running = 1
-  while $running
-    # Read ADC
-    set $adc = *(uint32_t*)0x60040000
+# test_harness.gdb
+define run_all_tests
+  # Run test 1
+  break test_button_press_cycles_hue
+  run
 
-    # Calculate PWM duty cycle (0-100%)
-    set $target_brightness = 2048  # Target ADC value
-    set $error = $target_brightness - $adc
-    set $pwm_adjustment = $error / 20
+  # Check result
+  if test_failed == 1
+    printf "❌ FAILED: test_button_press_cycles_hue\n"
+  else
+    printf "✅ PASSED: test_button_press_cycles_hue\n"
+  end
 
-    # Constrain to 0-100%
-    set $current_pwm = pwm_duty_cycle
-    set $new_pwm = $current_pwm + $pwm_adjustment
-    if $new_pwm < 0
-      set $new_pwm = 0
-    end
-    if $new_pwm > 100
-      set $new_pwm = 100
-    end
+  # Run test 2
+  delete breakpoints  # Clear old breakpoints
+  break test_imu_tilt_controls_brightness
+  run
 
-    # Apply
-    call set_pwm_duty($new_pwm)
-
-    # Display
-    printf "ADC: %4d, Target: 2048, Error: %+5d, PWM: %3d%%\n", \
-           $adc, $error, $new_pwm
-
-    # Update rate
-    shell sleep 0.1
+  if test_failed == 1
+    printf "❌ FAILED: test_imu_tilt_controls_brightness\n"
+  else
+    printf "✅ PASSED: test_imu_tilt_controls_brightness\n"
   end
 end
-
-# Run it
-auto_brightness
-
-# Stop with Ctrl-C, then:
-set $running = 0
 ```
 
-**Statistics Dashboard:**
-```gdb
-define show_stats
-  printf "╔════════════════════════════════════╗\n"
-  printf "║  Light Control Statistics          ║\n"
-  printf "╠════════════════════════════════════╣\n"
-  printf "║  ADC Value:    %4d               ║\n", *(uint32_t*)0x60040000
-  printf "║  PWM Duty:     %3d%%              ║\n", pwm_duty_cycle
-  printf "║  Target:       2048               ║\n"
-  printf "║  Error:        %+5d              ║\n", 2048 - *(uint32_t*)0x60040000
-  printf "║  Loop Count:   %6d            ║\n", control_loop_count
-  printf "╚════════════════════════════════════╝\n"
-end
-
-# Auto-refresh
-break main.rs:88 if loop_count % 10 == 0
-commands
-  silent
-  show_stats
-  continue
-end
+**Run:**
+```bash
+gdb -batch -x test_harness.gdb target/debug/lesson-05-hil-testing
 ```
 
-### Why These 2 Techniques
-- Shows GDB for control systems
-- Automated feedback loop is impressive
-- Real-time visualization
+**Commit 7: Reverse debugging with rr**
+```bash
+# Record test execution
+rr record cargo test test_button_press_cycles_hue
 
----
+# Replay in reverse
+rr replay
 
-## Lesson 06: Multi-Peripheral Integration
+(gdb) break test_button_press_cycles_hue
+(gdb) continue
+# Test fails at assertion
 
-### Overview
-**Peripherals:** GPIO + UART + I2C + SPI (simultaneously)
-**Duration:** 120-180 minutes
-**Complexity:** ⭐⭐⭐⭐⭐
-**Hardware:** ESP32-C6 + all previous peripherals
+(gdb) reverse-continue  # Go backward!
+# Now at previous state transition
 
-### GDB Techniques (3)
-1. **All previous techniques** - Combined usage
-2. **Multi-watchpoints** - Track peripheral interactions
-3. **System orchestration** - Python control scripts
+(gdb) reverse-step
+# Step backward through code to find where bug was introduced
+```
+
+**Commit 8: CI/CD integration**
+```yaml
+# .github/workflows/test.yml
+name: HIL Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Run HIL tests
+        run: cargo test --lib
+
+      - name: Run GDB test harness
+        run: |
+          gdb -batch -x test_harness.gdb target/debug/lesson-05-hil-testing
+```
+
+**Every commit now auto-tested!**
+
+### Virtual HIL + Real Hardware Workflow
+
+**Development cycle:**
+1. **Write test first** (TDD) - Define expected behavior with virtual hardware
+2. **Run on host** - Fast iteration, no flashing
+3. **Fix until test passes** - All logic correct
+4. **Flash to real hardware** - Should work first try!
+5. **Use UART + GDB** for any remaining hardware-specific issues
+
+**Example:**
+```bash
+# 1. Write test on host
+cargo test test_new_feature  # FAIL - feature not implemented
+
+# 2. Implement feature
+vim src/lib.rs
+
+# 3. Test again
+cargo test test_new_feature  # PASS
+
+# 4. Flash to hardware
+cd lessons/05-hil-testing
+cargo run --release --bin real_hardware
+
+# 5. Verify with UART
+# UART output matches virtual test expectations
+
+# 6. Done!
+```
 
 ### Learning Objectives
-- Coordinate multiple peripherals
-- Debug complex systems
-- Advanced GDB workflows
-- Professional debugging strategies
-
-### System Architecture
-- **GPIO:** Status LED (system state indicator)
-- **UART:** High-speed data streaming (sensor telemetry)
-- **I2C:** MPU9250 sensor readings (100 Hz)
-- **SPI:** SD card data logging (continuous)
-
-### Demo Scripts
-
-**System Orchestration:**
-```python
-python
-
-import gdb
-
-class SystemControl(gdb.Command):
-    """Control entire sensor logging system: system start|stop|status"""
-
-    def __init__(self):
-        super().__init__("system", gdb.COMMAND_USER)
-
-    def invoke(self, arg, from_tty):
-        if arg == "start":
-            print("Starting sensor logging system...")
-            gdb.execute("call led_blink_fast()")  # Status: starting
-            gdb.execute("call uart_start_stream()")
-            gdb.execute("call mpu9250_enable()")
-            gdb.execute("call sd_open_log_file()")
-            gdb.execute("call led_on()")  # Status: running
-            print("✅ System started!")
-
-        elif arg == "stop":
-            print("Stopping system...")
-            gdb.execute("call led_blink_slow()")  # Status: stopping
-            gdb.execute("call sd_close_file()")
-            gdb.execute("call mpu9250_disable()")
-            gdb.execute("call uart_stop_stream()")
-            gdb.execute("call led_off()")  # Status: stopped
-            print("✅ System stopped!")
-
-        elif arg == "status":
-            print("System Status:")
-            print("-" * 40)
-
-            # UART
-            uart_active = int(gdb.parse_and_eval("uart_is_active()"))
-            print(f"UART:  {'🟢 Active' if uart_active else '🔴 Inactive'}")
-
-            # I2C
-            i2c_active = int(gdb.parse_and_eval("mpu9250_is_enabled()"))
-            print(f"I2C:   {'🟢 Active' if i2c_active else '🔴 Inactive'}")
-
-            # SPI
-            sd_active = int(gdb.parse_and_eval("sd_is_open()"))
-            print(f"SPI:   {'🟢 Active' if sd_active else '🔴 Inactive'}")
-
-            # Statistics
-            sample_count = int(gdb.parse_and_eval("total_samples"))
-            bytes_logged = int(gdb.parse_and_eval("bytes_written"))
-            print("-" * 40)
-            print(f"Samples:     {sample_count}")
-            print(f"Bytes logged: {bytes_logged}")
-
-        elif arg == "dump":
-            print("Dumping sensor data...")
-            gdb.execute("dump binary memory sensor_dump.bin &sensor_buffer 4096")
-            print("✅ Saved to sensor_dump.bin")
-
-SystemControl()
-end
-```
-
-**Usage:**
-```gdb
-system start     # Start logging
-system status    # Check status
-system stop      # Stop logging
-system dump      # Save data
-```
-
-### Why These 3 Techniques
-- Demonstrates professional workflow
-- Shows GDB's power for complex systems
-- Impressive orchestration demo
+- Build complete HIL test framework
+- Separate business logic from hardware (HAL abstraction)
+- Write integration tests that run on host
+- Use GDB for automated testing
+- Master reverse debugging with rr
+- Set up CI/CD pipeline
+- Claude teaches: "Test on host first, hardware second"
 
 ---
 
-## Lesson 07: Production Debugging
+## Curriculum Summary
 
-### Overview
-**Focus:** Real-world debugging scenarios
-**Duration:** 90-120 minutes
-**Complexity:** ⭐⭐⭐⭐⭐
-**Hardware:** ESP32-C6 (reuse from previous lessons)
+| Lesson | Focus | What You Build | GDB Techniques | Complexity | Duration |
+|--------|-------|----------------|----------------|------------|----------|
+| 01 | GDB Basics | Button + NeoPixel | Memory ops, variables, function calls | ⭐⭐☆☆☆ | 60-90 min |
+| 02 | UART + Observability | Memory streamer + terminal | Watchpoints, conditional breaks, memory compare | ⭐⭐⭐☆☆ | 90-120 min |
+| 03 | State Machine + I2C | Color navigator + IMU | Register diff, tracepoints, Python scripting | ⭐⭐⭐⭐☆ | 120-150 min |
+| 04 | Task Scheduler + Atomics | Split into concurrent tasks | Watchpoints on atomics, call stack, profiling | ⭐⭐⭐⭐☆ | 120-150 min |
+| 05 | Virtual HIL Testing | Complete test framework | Automated testing, reverse debugging, CI/CD | ⭐⭐⭐⭐⭐ | 150-240 min |
 
-### GDB Techniques (3)
-1. **Signal handling** - Catch panics, analyze crashes
-2. **Post-mortem analysis** - Memory dumps from crashes
-3. **Performance profiling** - Find bottlenecks
+**Total:** 9-13.5 hours
 
-### Learning Objectives
-- Debug production firmware
-- Analyze crashes without reproduction
-- Performance optimization
-- Real-world scenarios
+**Progressive Build:**
+- Lesson 01: Foundation (button + LED)
+- Lesson 02: Add UART observability
+- Lesson 03: Add state machine + sensor
+- Lesson 04: Refactor into tasks + atomics
+- Lesson 05: Test everything without hardware
 
-### Scenarios
-
-**Scenario 1: Panic in ISR**
-```gdb
-catch panic
-commands
-  printf "╔══════════════════════════════════════╗\n"
-  printf "║  PANIC DETECTED!                     ║\n"
-  printf "╚══════════════════════════════════════╝\n"
-
-  backtrace full
-
-  # Save crash dump
-  dump binary memory crash_dump.bin 0x3C000000 0x3C080000
-
-  # Print panic info
-  print panic_message
-  print panic_location
-
-  printf "\nCrash dump saved to crash_dump.bin\n"
-end
-```
-
-**Scenario 2: Performance Profiling**
-```gdb
-# Count function calls
-set $main_loop = 0
-set $i2c_reads = 0
-set $spi_writes = 0
-set $uart_sends = 0
-
-break main.rs:88
-commands
-  silent
-  set $main_loop = $main_loop + 1
-  continue
-end
-
-break mpu9250_read
-commands
-  silent
-  set $i2c_reads = $i2c_reads + 1
-  continue
-end
-
-break sd_write
-commands
-  silent
-  set $spi_writes = $spi_writes + 1
-  continue
-end
-
-break uart_send
-commands
-  silent
-  set $uart_sends = $uart_sends + 1
-  continue
-end
-
-# Run for 10 seconds, then:
-printf "Performance Profile (10 seconds):\n"
-printf "  Main loops:  %d (%d Hz)\n", $main_loop, $main_loop / 10
-printf "  I2C reads:   %d (%d Hz)\n", $i2c_reads, $i2c_reads / 10
-printf "  SPI writes:  %d (%d Hz)\n", $spi_writes, $spi_writes / 10
-printf "  UART sends:  %d (%d Hz)\n", $uart_sends, $uart_sends / 10
-printf "\nRatios:\n"
-printf "  I2C per loop: %.2f\n", (float)$i2c_reads / $main_loop
-printf "  SPI per loop: %.2f\n", (float)$spi_writes / $main_loop
-```
-
-**Scenario 3: Memory Corruption Hunt**
-```gdb
-# Find who's corrupting our buffer
-watch uart_buffer[0]
-commands
-  printf "⚠️  Buffer corruption detected!\n"
-  backtrace
-  print/x uart_buffer[0]
-  # Stop for investigation
-end
-```
-
-### Why These 3 Techniques
-- Essential for production debugging
-- Real-world applicable skills
-- Completes the GDB mastery
+**Each lesson builds on the previous**, creating a complete production-ready embedded system with professional testing practices!
 
 ---
 
-## Summary: Progressive Skill Building
+## Key Learning Path
 
-### Lesson Progression
+### Lesson 01: GDB Fundamentals
+**Claude drives development**:
+- "Let's use GDB to inspect the GPIO register"
+- "Try this command: `x/1xw 0x6009103C`"
+- "Now calculate the bit mask with: `set $mask = 1 << 9`"
 
-```
-01: GPIO          →  Foundation (memory, vars, calls)
-02: UART+DMA      →  Async (watchpoints, conditionals, stack)
-03: I2C+IMU       →  Data (dumps, injection, analysis)
-04: SPI+SD        →  Advanced (Python, custom commands)
-05: PWM+ADC       →  Control (stats, automation)
-06: Multi         →  Integration (orchestration, all skills)
-07: Debug         →  Production (panics, profiling, real-world)
-```
-
-### Skill Accumulation
-
-- After L01: 3/13 skills (23%)
-- After L02: 6/13 skills (46%)
-- After L03: 8/13 skills (62%)
-- After L04: 10/13 skills (77%) ← Minimum viable
-- After L05: 10/13 skills (77%)
-- After L06: 11/13 skills (85%)
-- After L07: 11/13 skills (85%) ← Complete
+**You learn**: Basic GDB, memory-mapped I/O, bit manipulation
 
 ---
 
-**For full technical reference:** See `GDB_REFERENCE.md`
+### Lesson 02: Add UART for More Capability
+**Build on Lesson 01**:
+- Keep button + NeoPixel working
+- Add UART streaming of GPIO register
+- Develop arbitrary memory streamer
+
+**Claude teaches**:
+- "UART gives you continuous monitoring"
+- "GDB gives you precise breakpoints"
+- "Together they're powerful!"
+
+**You learn**: UART + GDB combined debugging, DMA, watchpoints
+
+---
+
+### Lesson 03: State Machine + IMU Sensor
+**Build on Lesson 02**:
+- Keep UART streaming
+- Add state machine for color navigation
+- Add IMU for tilt sensing
+- Stream state + sensor data via UART
+
+**Claude teaches**:
+- "Let's use register diff to debug I2C"
+- "Tracepoints log without stopping"
+- "Python script visualizes state machine"
+
+**You learn**: Statig, I2C drivers, event-driven architecture, GDB scripting
+
+---
+
+### Lesson 04: Split into Tasks + Atomics
+**Build on Lesson 03**:
+- Same functionality
+- But: refactored into independent tasks
+- Lock-free communication via atomics
+
+**Claude teaches**:
+- "Watch the atomic change with watchpoint"
+- "Profile each task's execution time"
+- "Call stack shows scheduler flow"
+
+**You learn**: Cooperative scheduling, atomics, performance profiling
+
+---
+
+### Lesson 05: Virtual HIL Testing
+**Build on Lesson 04**:
+- Extract HAL traits
+- Implement virtual hardware
+- Write integration tests
+- Run on host!
+
+**Claude teaches**:
+- "Test business logic without hardware"
+- "Reverse debugging finds root cause"
+- "Automate tests in CI/CD"
+
+**You learn**: HAL abstraction, mocking, TDD, reverse debugging, CI/CD
+
+---
+
+## Hardware Requirements
+
+| Lesson | Hardware | Notes |
+|--------|----------|-------|
+| 01 | ESP32-C6-DevKitC-1 | All onboard (GPIO9 button + GPIO8 NeoPixel) |
+| 02 | + FTDI UART adapter | GPIO16 TX, GPIO17 RX |
+| 03 | + MPU9250 IMU | I2C: GPIO2 SDA, GPIO11 SCL |
+| 04 | Same as Lesson 03 | No new hardware |
+| 05 | **None!** | Runs on host |
+
+**Total cost**: ~$25 (ESP32-C6 + FTDI + MPU9250)
+
+---
+
+## Why This Flow Works
+
+1. **Lesson 01**: Learn GDB basics with simple hardware (button + LED)
+2. **Lesson 02**: Add UART for complex debugging (memory streaming)
+3. **Lesson 03**: Add state machine + sensor (real embedded system)
+4. **Lesson 04**: Refactor for maintainability (tasks + atomics)
+5. **Lesson 05**: Test without hardware (professional workflow)
+
+**Each lesson adds one major concept**, building toward a complete production-ready system with professional testing!
+
+**Claude drives learning**: Teaches GDB techniques as needed, when they're useful for the current problem.
+
+**Real embedded practices**: Atomics, state machines, task scheduling, HAL abstraction, TDD, CI/CD.
+
+**Hardware you have**: ESP32-C6-DevKitC-1, MPU9250 IMU. No servo needed!
