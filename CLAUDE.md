@@ -650,38 +650,82 @@ If you don't know which pins to use:
 
 ## esp-hal 1.0.0 API and Documentation
 
-**IMPORTANT: esp-hal 1.0.0 has breaking changes from pre-1.0 versions.**
+**CRITICAL: esp-hal 1.0.0 is brand new and has breaking API changes. DO NOT assume you know the patterns.**
 
-### Always Fetch Latest Documentation
+### ALWAYS Read Docs and Examples FIRST
 
-Instead of relying on hardcoded examples in this file, **always fetch the latest API documentation** when working with esp-hal:
+**Before writing ANY peripheral configuration code:**
 
+1. **Read the official documentation:**
+   - **Main docs:** https://docs.espressif.com/projects/rust/esp-hal/1.0.0-beta.0/esp32c6/esp_hal/index.html
+   - **Peripheral-specific:** Replace the last path segment with your peripheral (e.g., `/gpio/`, `/uart/`, `/i2c/`)
+   - **Use WebFetch** to read the docs directly in your workflow
+
+2. **Find working examples:**
+   - **Official examples:** https://github.com/esp-rs/esp-hal/tree/v1.0.0/examples/src/bin
+   - **Search examples:** Look for files like `gpio_output.rs`, `uart_echo.rs`, `i2c_master.rs`
+   - **This repo's code:** Check `lessons/02-uart-dma/src/bin/main.rs` for UART + DMA example
+   - **Use WebFetch** to read example code before writing your own
+
+3. **Check changelog for breaking changes:**
+   - **Changelog:** https://github.com/esp-rs/esp-hal/blob/v1.0.0/CHANGELOG.md
+   - **Look for:** v1.0.0 breaking changes section
+
+### Why This Matters
+
+**You WILL get the API wrong if you guess.** esp-hal 1.0.0 changed:
+- GPIO initialization (`Output::new()` not `.into_output()`)
+- UART configuration (builder pattern with `.with_tx()/.with_rx()`)
+- DMA setup (UHCI wrapper for UART, not direct DMA)
+- Peripheral access (direct `peripherals.GPIO12`, no `Io::new()`)
+
+**Always verify against current docs.** Pre-1.0 examples are incompatible.
+
+### Example Discovery Workflow
+
+**Step 1: Read peripheral docs**
+```bash
+# Use WebFetch to read GPIO documentation
+WebFetch("https://docs.espressif.com/projects/rust/esp-hal/1.0.0-beta.0/esp32c6/esp_hal/gpio/index.html",
+         "Show me how to create an Output pin")
 ```
-Use WebFetch tool to get current documentation:
-- https://docs.esp-rs.org/esp-hal/esp-hal/
-- https://github.com/esp-rs/esp-hal/blob/main/CHANGELOG.md (for breaking changes)
-- https://github.com/esp-rs/esp-hal/tree/main/examples (for working examples)
+
+**Step 2: Find working example**
+```bash
+# Use WebFetch to read official example
+WebFetch("https://raw.githubusercontent.com/esp-rs/esp-hal/v1.0.0/examples/src/bin/gpio_output.rs",
+         "Show me the complete GPIO output example")
 ```
 
-### Quick Reference: Common Patterns
-
-**UART initialization (esp-hal 1.0.0+):**
+**Step 3: Adapt to your needs**
 ```rust
-// Fetch latest syntax from:
-// https://docs.esp-rs.org/esp-hal/esp-hal/uart/index.html
+// Example from docs (ALWAYS verify this is current):
+use esp_hal::gpio::Output;
 
-// Basic pattern (verify against docs):
-use esp_hal::uart::{Config as UartConfig, Uart};
-
-let mut uart = Uart::new(peripherals.UART1, UartConfig::default())
-    .with_tx(peripherals.GPIO23)
-    .with_rx(peripherals.GPIO15);
+let mut led = Output::new(peripherals.GPIO12, esp_hal::gpio::Level::Low);
+led.set_high();
+led.set_low();
 ```
+
+### Common Patterns (VERIFY AGAINST DOCS)
+
+**GPIO Output:**
+- Docs: https://docs.espressif.com/projects/rust/esp-hal/1.0.0-beta.0/esp32c6/esp_hal/gpio/index.html
+- Example: https://github.com/esp-rs/esp-hal/blob/v1.0.0/examples/src/bin/gpio_output.rs
+
+**UART:**
+- Docs: https://docs.espressif.com/projects/rust/esp-hal/1.0.0-beta.0/esp32c6/esp_hal/uart/index.html
+- Example: https://github.com/esp-rs/esp-hal/blob/v1.0.0/examples/src/bin/uart_echo.rs
+
+**I2C:**
+- Docs: https://docs.espressif.com/projects/rust/esp-hal/1.0.0-beta.0/esp32c6/esp_hal/i2c/index.html
+- Example: https://github.com/esp-rs/esp-hal/blob/v1.0.0/examples/src/bin/i2c_master.rs
 
 **When in doubt:**
-1. Check existing working code in `lessons/08-uart-gdb-tandem/src/bin/`
-2. Use WebFetch to read latest esp-hal docs
-3. Search esp-hal examples: https://github.com/esp-rs/esp-hal/tree/main/examples
+1. **Use WebFetch** to read official docs for your peripheral
+2. **Use WebFetch** to read official example code
+3. Check this repo's working code: `lessons/02-uart-dma/`, etc.
+4. **Never write peripheral code from memory**
 
 ### Migration from Pre-1.0
 

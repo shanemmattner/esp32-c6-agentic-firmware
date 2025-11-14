@@ -8,7 +8,7 @@
 
 ## Prerequisites
 
-- ESP32-C6 DevKit (with LED on GPIO8)
+- ESP32-C6 DevKit (with LED on GPIO12)
 - USB cable
 - Rust toolchain installed
 - `riscv32-esp-elf-gdb` (for GDB debugging)
@@ -66,8 +66,8 @@ riscv32-esp-elf-gdb target/riscv32imac-unknown-none-elf/release/main
 ## Troubleshooting
 
 **LED doesn't blink?**
-- Check GPIO8 is the LED pin on your board
-- Verify debug server is running
+- Verify LED is connected to GPIO12
+- Check debug server is running
 - Try manual toggle: `(gdb) toggle_led`
 
 **Can't connect GDB?**

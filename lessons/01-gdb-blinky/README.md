@@ -19,7 +19,7 @@ This lesson teaches **memory-mapped I/O fundamentals** and **register-level debu
 
 ## Prerequisites
 
-- ESP32-C6 DevKit with onboard LED (GPIO8)
+- ESP32-C6 DevKit with LED on GPIO12
 - USB cable for programming and debugging
 - GDB toolchain (`riscv32-esp-elf-gdb`)
 - Debug server (`probe-rs` or `openocd`)
@@ -125,26 +125,26 @@ OUT_W1TC         0x000C    0x6009100C   Write 1 to clear (turn OFF)
 ENABLE_W1TS      0x0024    0x60091024   Enable GPIO as output
 ```
 
-**For GPIO8 LED:** Bit 8 = `0x100` (or `1 << 8`)
+**For GPIO12 LED:** Bit 12 = `0x1000` (or `1 << 12`)
 
 ### The GDB Magic
 
 ```gdb
-# 1. Enable GPIO8 as output
-(gdb) set *(uint32_t*)0x60091024 = 0x100
+# 1. Enable GPIO12 as output
+(gdb) set *(uint32_t*)0x60091024 = 0x1000
 
 # 2. Turn LED ON
-(gdb) set *(uint32_t*)0x60091008 = 0x100
+(gdb) set *(uint32_t*)0x60091008 = 0x1000
 
 # 3. Turn LED OFF
-(gdb) set *(uint32_t*)0x6009100C = 0x100
+(gdb) set *(uint32_t*)0x6009100C = 0x1000
 ```
 
 **What's happening:**
 - `0x60091024` = GPIO ENABLE_W1TS register (write 1 to set bits)
 - `0x60091008` = GPIO OUT_W1TS register (write 1 to set output high)
 - `0x6009100C` = GPIO OUT_W1TC register (write 1 to clear output low)
-- `0x100` = Bit 8 mask for GPIO8
+- `0x1000` = Bit 12 mask for GPIO12
 
 **No firmware code involved - pure register manipulation!**
 
@@ -162,10 +162,10 @@ break main.rs:54  # Breakpoint on delay loop
 commands
   silent
   if $led_state == 0
-    set *(uint32_t*)0x60091008 = 0x100  # ON
+    set *(uint32_t*)0x60091008 = 0x1000  # ON
     set $led_state = 1
   else
-    set *(uint32_t*)0x6009100C = 0x100  # OFF
+    set *(uint32_t*)0x6009100C = 0x1000  # OFF
     set $led_state = 0
   end
   continue
@@ -294,12 +294,12 @@ Bit 8 should be set (0x100) when LED is on.
 
 **Try toggling:**
 ```gdb
-(gdb) set *(uint32_t*)0x60091008 = 0x100  # ON
+(gdb) set *(uint32_t*)0x60091008 = 0x1000  # ON
 # Wait a moment, check LED
-(gdb) set *(uint32_t*)0x6009100C = 0x100  # OFF
+(gdb) set *(uint32_t*)0x6009100C = 0x1000  # OFF
 ```
 
-**Verify GPIO8 is the LED pin on your board** (most ESP32-C6 DevKits use GPIO8)
+**Note:** GPIO12 is used for LED control (GPIO8 is a boot strapping pin and should be avoided)
 
 ### GDB can't connect
 
