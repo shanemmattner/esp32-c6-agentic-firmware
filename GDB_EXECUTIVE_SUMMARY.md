@@ -1,8 +1,13 @@
-# GDB Executive Summary: Quick Reference
+# Claude Code + GDB + UART Workflow: Quick Reference
 
-**ESP32-C6 + esp-hal 1.0.0 - Progressive Embedded Systems Curriculum**
+**ESP32-C6 + esp-hal 1.0.0 - Complete Development Workflow**
 
-**Philosophy**: Build a complete embedded system progressively (button → UART → state machine → tasks → HIL testing), learning GDB techniques at each stage.
+**Primary Goals:**
+1. **Learn the Claude Code + GDB + UART workflow** for effective embedded development
+2. **Master esp-hal 1.0.0** Rust patterns for ESP32-C6
+3. **Build production-quality embedded systems**
+
+**Philosophy**: This isn't just about learning GDB - it's about learning the **complete workflow** of using Claude Code to drive development, GDB for precise debugging, and UART for continuous observability. Build a complete embedded system progressively (blinky → button → UART → state machine → tasks → HIL testing).
 
 ---
 
@@ -103,21 +108,36 @@
 
 ---
 
-## UART + GDB Combined Strategy
+## The Claude Code + GDB + UART Workflow
 
-**UART**: Continuous monitoring (big picture)
-- Stream GPIO registers every 50ms
-- Stream state machine state + sensor data
-- Stream task execution times
-- Machine-parseable format for analysis
+**This is what you're learning** - not just GDB commands, but the complete development workflow:
 
-**GDB**: Precise breakpoints (exact moments)
+### Claude Code's Role
+- **Writes code** based on your requirements
+- **Suggests debugging strategies** when things don't work
+- **Teaches GDB techniques** as they become useful
+- **Guides investigation** ("Let's inspect the GPIO register with GDB")
+- **Iterates with you** through build-flash-debug cycles
+
+### UART's Role: Continuous Monitoring (big picture)
+- Stream GPIO registers every 50ms → See button state over time
+- Stream state machine state + sensor data → Understand system behavior
+- Stream task execution times → Catch performance issues
+- Machine-parseable format → Analyze trends, find patterns
+
+### GDB's Role: Precise Inspection (exact moments)
 - Break when specific memory address changes (watchpoints)
 - Break only when condition is true (conditional breakpoints)
 - Inspect registers/memory at exact moment of interest
 - Step through code instruction-by-instruction
+- Call functions interactively to test behavior
 
-**Power combo**: UART shows trends, GDB catches exact moments!
+### The Power Combo
+**UART shows trends** → "Button presses are happening, but LED only changes sometimes"
+**GDB catches exact moments** → Watchpoint breaks when LED state changes, reveals debouncing bug
+**Claude guides** → "Let's add a watchpoint on the LED state variable to see when it changes"
+
+**Together**: Extremely effective embedded development workflow!
 
 ---
 

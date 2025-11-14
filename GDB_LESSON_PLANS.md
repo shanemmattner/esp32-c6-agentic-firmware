@@ -1,14 +1,27 @@
-# GDB Lesson Plans: Embedded Best Practices + Progressive Complexity
+# GDB Lesson Plans: Claude Code + GDB + UART Workflow for ESP32-C6
 
 **ESP32-C6 + esp-hal 1.0.0 - From Blinky to Production HIL Testing**
 
-**Philosophy**: Start where every engineer starts (blinky!), then progressively build a complete embedded system, learning GDB techniques at each stage:
-0. **Blinky** - The classic "Hello World" of embedded (no GDB yet)
-1. **GDB fundamentals** - Claude drives development with basic debugging
-2. **UART + Memory streaming** - Add observability for complex debugging
-3. **State machines + I2C** - Event-driven architecture with sensor integration
-4. **Task scheduler + Atomics** - Split monolith into concurrent tasks
-5. **Virtual HIL testing** - Test complete system without hardware
+**Primary Goals:**
+1. **Learn the Claude Code + GDB + UART workflow** for effective embedded development
+2. **Master esp-hal 1.0.0** Rust embedded patterns for ESP32-C6
+3. **Build production-quality embedded systems** with professional testing practices
+
+**Philosophy**: Start where every engineer starts (blinky!), then progressively build a complete embedded system. At each stage, learn how to use **Claude Code to drive development**, **GDB for precise debugging**, and **UART for continuous observability**.
+
+**Not just learning GDB** - learning the **complete workflow**:
+- Claude Code writes code, suggests debugging strategies
+- UART streams continuous telemetry (big picture)
+- GDB catches exact moments (precise inspection)
+- Together: extremely effective embedded development
+
+**Lesson progression:**
+0. **Blinky** - Get comfortable with ESP32-C6 + esp-hal 1.0.0 (no tools yet)
+1. **Claude + GDB fundamentals** - Learn the collaborative debugging workflow
+2. **Add UART streaming** - Combine UART observability with GDB precision
+3. **State machines + I2C** - Apply workflow to complex systems
+4. **Task scheduler + Atomics** - Debug concurrent embedded systems
+5. **Virtual HIL testing** - Professional testing without hardware
 
 **Hardware**: ESP32-C6-DevKitC-1 (GPIO9 button + GPIO8 NeoPixel onboard) + MPU9250 IMU
 
