@@ -6,23 +6,25 @@
 
 ---
 
-## 5-Lesson Curriculum Overview
+## 6-Lesson Curriculum Overview
 
 | Lesson | Build | Embedded Practice | GDB Techniques | Duration |
 |--------|-------|-------------------|----------------|----------|
+| 00 | **LED Blinky** | Get started, RMT peripheral | None (just blink!) | 30-45 min |
 | 01 | Button + NeoPixel | Event-driven, debouncing | Memory ops, variables, function calls | 60-90 min |
 | 02 | UART Memory Streamer | UART DMA, circular buffers | Watchpoints, conditional breaks | 90-120 min |
 | 03 | State Machine + IMU | Statig FSM, I2C drivers | Register diff, tracepoints, Python | 120-150 min |
 | 04 | Task Scheduler | Atomics, cooperative scheduling | Watchpoints on atomics, profiling | 120-150 min |
 | 05 | Virtual HIL Testing | HAL abstraction, TDD, CI/CD | Automated testing, reverse debug | 150-240 min |
 
-**Total: 9-13.5 hours** | **Hardware: ESP32-C6-DevKitC-1 + FTDI + MPU9250**
+**Total: 9.5-14 hours** | **Hardware: ESP32-C6-DevKitC-1 + FTDI + MPU9250**
 
 ---
 
 ## Progressive Build Path
 
-**Lesson 01** → Simple button + NeoPixel (foundation)
+**Lesson 00** → Blinky (the classic "Hello World" - just like everyone else!)
+**Lesson 01** → Button + NeoPixel + GDB (foundation)
 **Lesson 02** → Add UART observability for complex debugging
 **Lesson 03** → Add state machine + I2C sensor
 **Lesson 04** → Refactor into concurrent tasks with atomics

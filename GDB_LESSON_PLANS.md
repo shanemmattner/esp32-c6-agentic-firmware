@@ -1,8 +1,9 @@
 # GDB Lesson Plans: Embedded Best Practices + Progressive Complexity
 
-**ESP32-C6 + esp-hal 1.0.0 - From GDB Basics to Production HIL Testing**
+**ESP32-C6 + esp-hal 1.0.0 - From Blinky to Production HIL Testing**
 
-**Philosophy**: Build a complete embedded system progressively, learning GDB techniques at each stage while developing real production patterns:
+**Philosophy**: Start where every engineer starts (blinky!), then progressively build a complete embedded system, learning GDB techniques at each stage:
+0. **Blinky** - The classic "Hello World" of embedded (no GDB yet)
 1. **GDB fundamentals** - Claude drives development with basic debugging
 2. **UART + Memory streaming** - Add observability for complex debugging
 3. **State machines + I2C** - Event-driven architecture with sensor integration
@@ -10,6 +11,67 @@
 5. **Virtual HIL testing** - Test complete system without hardware
 
 **Hardware**: ESP32-C6-DevKitC-1 (GPIO9 button + GPIO8 NeoPixel onboard) + MPU9250 IMU
+
+---
+
+## Lesson 00: LED Blinky - The Classic Introduction
+
+### Overview
+**Focus:** Get started with ESP32-C6, esp-hal 1.0.0, and embedded Rust
+**Duration:** 30-45 minutes
+**Complexity:** ⭐☆☆☆☆
+**Hardware:** ESP32-C6-DevKitC-1 (onboard NeoPixel GPIO8)
+
+### What You'll Build
+The classic LED blinky - the "Hello World" of embedded systems. Just like every other engineer before you!
+
+Simple NeoPixel blink:
+- Turn LED red for 500ms
+- Turn LED off for 500ms
+- Repeat forever
+
+### Embedded Practices
+1. **Cargo project setup** - esp-hal 1.0.0 project structure
+2. **RMT peripheral** - Timing-critical WS2812 control
+3. **Delay** - Basic timing without timers
+4. **No interrupts, no complexity** - Just blink!
+
+### Why No GDB Yet?
+This lesson is intentionally simple - just get something working! You'll add GDB in Lesson 01 when you have something interesting to debug.
+
+**The irony**: Claude Code (an AI coding assistant) starts the same way every engineer has started for decades - with a blinking LED!
+
+### Commit Structure (1 commit)
+
+**Commit 1: Working LED blinky**
+- Complete working implementation
+- Simple, clean, ~50 lines of code
+- Red blink → off → repeat
+
+No progressive commits yet - just get it working!
+
+### Learning Objectives
+- Set up ESP32-C6 development environment
+- Understand esp-hal 1.0.0 project structure
+- Control NeoPixel RGB LED via RMT peripheral
+- Basic timing with `delay`
+- Get familiar with flashing workflow
+
+### Success Criteria
+- [ ] Project builds without errors
+- [ ] Firmware flashes to ESP32-C6
+- [ ] Onboard NeoPixel blinks red
+- [ ] 500ms on, 500ms off, repeating
+- [ ] UART shows startup messages
+
+### What's Next?
+In **Lesson 01**, we'll add:
+- Button input (GPIO9)
+- GDB debugging
+- Interactive control (button changes color)
+- Claude teaches you GDB while developing
+
+But for now - just enjoy the blinky! Every embedded engineer remembers their first LED. 🎉
 
 ---
 
@@ -790,16 +852,18 @@ cargo run --release --bin real_hardware
 
 | Lesson | Focus | What You Build | GDB Techniques | Complexity | Duration |
 |--------|-------|----------------|----------------|------------|----------|
+| 00 | **Blinky** | Simple LED blink | None (just get it working!) | ⭐☆☆☆☆ | 30-45 min |
 | 01 | GDB Basics | Button + NeoPixel | Memory ops, variables, function calls | ⭐⭐☆☆☆ | 60-90 min |
 | 02 | UART + Observability | Memory streamer + terminal | Watchpoints, conditional breaks, memory compare | ⭐⭐⭐☆☆ | 90-120 min |
 | 03 | State Machine + I2C | Color navigator + IMU | Register diff, tracepoints, Python scripting | ⭐⭐⭐⭐☆ | 120-150 min |
 | 04 | Task Scheduler + Atomics | Split into concurrent tasks | Watchpoints on atomics, call stack, profiling | ⭐⭐⭐⭐☆ | 120-150 min |
 | 05 | Virtual HIL Testing | Complete test framework | Automated testing, reverse debugging, CI/CD | ⭐⭐⭐⭐⭐ | 150-240 min |
 
-**Total:** 9-13.5 hours
+**Total:** 9.5-14 hours (including blinky warm-up)
 
 **Progressive Build:**
-- Lesson 01: Foundation (button + LED)
+- Lesson 00: Blinky (the classic start)
+- Lesson 01: Foundation (button + LED + GDB)
 - Lesson 02: Add UART observability
 - Lesson 03: Add state machine + sensor
 - Lesson 04: Refactor into tasks + atomics
