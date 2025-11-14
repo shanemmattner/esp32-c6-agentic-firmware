@@ -381,6 +381,298 @@ defmt::info!("sensors: ax={} ay={} az={} gx={} gy={} gz={} mx={} my={} mz={} tem
 11. **Use probe-rs memory access** - For deep inspection without adding code (x/Nxw <addr>)
 12. **Leverage autonomy** - Complete visibility → Claude spots patterns instantly → fixes emerge
 
+## Advanced Debugging Techniques: Tool Layer Issues
+
+### When "Everything is Configured Correctly" But Still Fails
+
+Sometimes the issue isn't your code—it's the debugging tools themselves. Here's how to debug the debugger:
+
+#### Technique 1: Differential Tool Analysis
+
+**Problem**: Tool fails silently, no error messages
+
+**Solution**: Compare multiple tools doing the same operation
+
+```bash
+# probe-rs run - may fail silently
+probe-rs run --chip esp32c6 target/.../main
+# Output: "Finished in 1.01s" ← No error, but no RTT either
+
+# cargo embed - shows actual errors
+cargo embed --release --probe 303a:1001 --bin main
+# Output: "Error Failed to attach to RTT: Timeout" ← Real error!
+```
+
+**Key insight**: cargo-embed provides better error reporting than probe-rs run for RTT issues.
+
+**When to use**:
+- Tool succeeds but feature doesn't work
+- Silent failures with no diagnostic output
+- Behavior differs from documentation
+
+#### Technique 2: Binary Inspection for Runtime State
+
+**Problem**: Uncertain if feature is compiled into binary
+
+**Solution**: Use `nm` to inspect symbol tables
+
+```bash
+# Check for RTT control block
+nm target/.../main | grep "_SEGGER_RTT"
+# Result: 40800dbc D _SEGGER_RTT ← Control block exists
+
+# Check for defmt-rtt symbols
+nm target/.../main | grep "defmt_rtt"
+# Result: Multiple symbols found ← defmt-rtt is linked
+
+# Verify NO unwanted symbols (e.g., esp-println conflict)
+nm target/.../main | grep "println"
+# Result: (empty) ← Good, no conflict
+```
+
+**What to check**:
+- Symbol presence (feature compiled in)
+- Symbol address (memory region validation)
+- Symbol absence (no conflicts)
+
+#### Technique 3: Configuration Sweep
+
+**Problem**: Unknown optimal parameter value
+
+**Solution**: Systematically test all reasonable values
+
+```bash
+# Example: RTT timeout sweep
+for TIMEOUT in 3000 5000 10000 30000; do
+    echo "Testing timeout: ${TIMEOUT}ms"
+    # Update Embed.toml with timeout
+    # Run cargo embed
+    # Document result
+done
+```
+
+**Results table format**:
+| Parameter | Result | Notes |
+|-----------|--------|-------|
+| 3000ms | Timeout | Too short |
+| 5000ms | Timeout | Still too short |
+| 10000ms | Silent fail | Different failure mode |
+| 30000ms | Silent fail | Not a timeout issue |
+
+**Conclusion from pattern**: Increasing timeout doesn't help → problem isn't timing-related
+
+#### Technique 4: Error Message Escalation
+
+**Problem**: Tool hides root cause
+
+**Strategy**: Progress from silent tools to verbose tools
+
+```
+Level 1: probe-rs run
+         ↓ (silent failure)
+Level 2: probe-rs run --rtt-scan-memory
+         ↓ (still silent)
+Level 3: cargo embed
+         ↓ (shows "Timeout")
+Level 4: cargo embed + firmware delay
+         ↓ (reveals USB errors!)
+Level 5: Check system logs, USB diagnostics
+```
+
+**Each level reveals more detail about the failure**
+
+#### Technique 5: Negative Space Testing
+
+**Problem**: Too many possible causes
+
+**Solution**: Systematically prove what the problem ISN'T
+
+```
+✅ NOT a configuration error (Cargo.toml correct)
+✅ NOT a code error (defmt_rtt imported correctly)
+✅ NOT a memory mapping issue (address in valid RAM)
+✅ NOT a library conflict (no esp-println symbols)
+✅ NOT a timeout issue (30s still fails)
+✅ NOT a timing issue (2s delay doesn't help)
+❌ MUST BE: Tool/hardware layer issue
+```
+
+**Why this works**: Elimination narrows search space exponentially
+
+#### Technique 6: Memory Map Validation
+
+**Problem**: Feature present in binary but not accessible at runtime
+
+**Solution**: Verify addresses are in JTAG-accessible memory
+
+```bash
+# Get symbol address
+nm target/.../main | grep "_SEGGER_RTT"
+# 40800dbc D _SEGGER_RTT
+
+# Check ESP32-C6 memory map (from datasheet)
+# DRAM: 0x40800000 - 0x40880000 ← RTT address IS in valid range
+
+# Verify it's NOT in ROM/Flash (read-only regions)
+# ROM:  0x40000000 - 0x40400000
+# Flash: 0x42000000 - 0x42800000
+```
+
+**Address validation checklist**:
+- [ ] Address in SRAM/DRAM (writable)
+- [ ] Not in ROM (read-only at runtime)
+- [ ] Not in Flash (code region)
+- [ ] Within JTAG scan range
+
+#### Technique 7: USB Layer Diagnostics
+
+**Problem**: JTAG-based debugging fails mysteriously
+
+**Solution**: Check for USB transfer errors
+
+```bash
+# Run with verbose output to see USB layer
+cargo embed --release --probe <id> --bin main 2>&1 | grep -i "usb\|transfer\|disconnect"
+
+# Look for platform-specific errors:
+# macOS: IOKit errors (e0004061, e00002c0)
+# Linux: libusb errors
+# Windows: WinUSB errors
+```
+
+**Common USB issues**:
+- **"Failed to submit transfer"** → USB driver issue
+- **"device disconnected"** → Hardware/cable problem
+- **"e0004061"** → macOS IOKit timeout
+- **"e00002c0"** → macOS IOKit device error
+
+**Workarounds**:
+1. Try different USB port
+2. Use external JTAG probe (vs built-in USB-JTAG)
+3. Test on different OS (macOS → Linux)
+4. Check USB cable quality (data vs charging-only)
+
+#### Technique 8: Tool Version Archaeology
+
+**Problem**: Feature should work but doesn't
+
+**Solution**: Research tool version history
+
+```bash
+# Check current version
+probe-rs --version
+# probe-rs 0.30.0
+
+# Search changelog for relevant fixes
+# https://github.com/probe-rs/probe-rs/blob/master/CHANGELOG.md
+
+# Search GitHub issues for similar problems
+# Look for: "ESP32-C6 RTT", "Failed to attach", etc.
+
+# Check if issue was "resolved" but isn't actually fixed
+```
+
+**Red flags**:
+- Issue marked "closed" but symptoms persist
+- "Should work" in docs but community reports failures
+- Recent version regressions
+
+#### Technique 9: Hypothesis-Driven Debugging
+
+**Process**:
+1. Form specific hypothesis
+2. Design test to prove/disprove
+3. Run test and document result
+4. Accept or reject hypothesis
+5. Form next hypothesis based on results
+
+**Example from tonight**:
+
+| Hypothesis | Test | Result | Conclusion |
+|------------|------|--------|------------|
+| Timeout too short | Try 30s timeout | Still fails | ❌ Rejected |
+| RTT not initialized | Add 2s delay | Still fails + USB errors | ❌ Rejected, but revealed new info |
+| esp-println conflict | Check `nm` for symbols | No symbols found | ❌ Rejected |
+| USB transfer issue | Check cargo embed verbose | USB errors found | ✅ **Confirmed** |
+
+#### Technique 10: Documentation Logging
+
+**Problem**: Complex debugging session hard to remember
+
+**Solution**: Document as you go
+
+```bash
+# Create test scripts with embedded documentation
+cat > /tmp/test_rtt_timeout.sh << 'SCRIPT'
+#!/bin/bash
+# Test: Does increasing RTT timeout fix attachment?
+# Hypothesis: probe-rs needs more time to scan memory
+# Expected: 30s timeout should be sufficient
+
+for TIMEOUT in 3000 5000 10000 30000; do
+    echo "=== Testing timeout: ${TIMEOUT}ms ==="
+    # ... test code ...
+    echo "Result: <document here>"
+done
+
+echo "Conclusion: <summarize findings>"
+SCRIPT
+```
+
+**Why this matters**:
+- Future debugging sessions can learn from past attempts
+- Patterns emerge across multiple tests
+- Reproducibility for bug reports
+- Knowledge transfer to other developers/agents
+
+### Debugging Checklist: RTT Not Working
+
+Use this checklist when RTT fails to attach:
+
+**Configuration Layer** (Your Code):
+- [ ] `defmt_rtt` in Cargo.toml dependencies?
+- [ ] `use defmt_rtt as _;` in main.rs?
+- [ ] `defmt::info!()` calls present in code?
+- [ ] `defmt::timestamp!()` defined?
+- [ ] Verify with `nm`: `_SEGGER_RTT` symbol exists?
+- [ ] Check binary size: defmt-rtt adds ~10-50 KB
+
+**Tool Layer** (probe-rs):
+- [ ] Try `cargo embed` instead of `probe-rs run`
+- [ ] Check probe-rs version: `probe-rs --version`
+- [ ] Test with `--rtt-scan-memory` flag
+- [ ] Increase RTT timeout in Embed.toml (5-30s)
+- [ ] Look for USB errors in verbose output
+
+**Hardware Layer**:
+- [ ] Probe detected: `probe-rs list`
+- [ ] Can connect: `probe-rs info --chip esp32c6`
+- [ ] Flash works: `probe-rs download`
+- [ ] Try different USB port
+- [ ] Try external JTAG probe (vs built-in USB-JTAG)
+- [ ] Check USB cable (data vs charging-only)
+
+**Platform Layer**:
+- [ ] Check for USB driver errors (IOKit, libusb, WinUSB)
+- [ ] Test on different OS (macOS → Linux)
+- [ ] Review system logs for USB disconnect events
+
+**If all checks pass but RTT still fails**:
+→ Likely tool/hardware compatibility issue, not configuration
+→ Workaround: Use esp-println instead of defmt-rtt
+→ File bug report with comprehensive testing logs
+
+### Key Takeaways for Claude Code
+
+1. **Tool selection matters** - cargo embed > probe-rs run for error visibility
+2. **Configuration correctness ≠ functionality** - Tools can have bugs even when you did everything right
+3. **Escalate verbosity** - Progress from silent tools to verbose tools until errors appear
+4. **Document systematically** - Create scripts and logs for reproducibility
+5. **Test the tool, not just your code** - Compare multiple tools, check changelogs, search issues
+6. **USB is a failure point** - Built-in USB-JTAG can have platform-specific issues
+7. **Negative testing is powerful** - Proving what it ISN'T narrows search space
+8. **Differential analysis reveals truth** - Run same operation with multiple tools, compare results
+
 ## Your Task
 
 When the user describes a problem:

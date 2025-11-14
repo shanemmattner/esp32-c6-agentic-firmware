@@ -12,3 +12,15 @@ Cargo.lock
 # OS
 .DS_Store
 Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Logs and data
+*.log
+*.csv
+*.bin

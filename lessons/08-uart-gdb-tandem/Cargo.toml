@@ -8,7 +8,32 @@ rust-version = "1.88"
 name = "main"
 path = "src/bin/main.rs"
 
+[[bin]]
+name = "memory_streamer"
+path = "src/bin/memory_streamer.rs"
+
+[[bin]]
+name = "memory_streamer_v2"
+path = "src/bin/memory_streamer_v2.rs"
+
+[[bin]]
+name = "uart_streamer"
+path = "src/bin/uart_streamer.rs"
+
+[[bin]]
+name = "uart_speed_test"
+path = "src/bin/uart_speed_test.rs"
+
+[[bin]]
+name = "usb_cdc_speed_test"
+path = "src/bin/usb_cdc_speed_test.rs"
+
+[[bin]]
+name = "hil_benchmark"
+path = "src/bin/hil_benchmark.rs"
+
 [dependencies]
+heapless = "0.8"
 # Hardware abstraction layer
 esp-hal = { version = "1.0.0", features = ["esp32c6", "unstable"] }
 
