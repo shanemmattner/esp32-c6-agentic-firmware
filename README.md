@@ -25,8 +25,12 @@ Progressive tutorials from basic GPIO to advanced features:
 - **05-spi-display** - SPI with display driver
 - **06-uart-shell** - UART communication and CLI
 - **[07-gdb-debugging](./lessons/07-gdb-debugging/)** ✅ - GDB debugging with OpenOCD
-- **[08-defmt-rtt-logging](./lessons/08-defmt-rtt-logging/)** ✅ - Structured logging with defmt + RTT
-- **[09-rtt-exploration](./lessons/09-rtt-exploration/)** 🔜 - RTT multi-channel + autonomous LLM debugging
+- **[08-uart-gdb-tandem](./lessons/08-uart-gdb-tandem/)** 🚧 - UART variable streaming + GDB tandem debugging
+
+**Future Explorations** (advanced/incomplete work in `future/` directory):
+- defmt + RTT structured logging
+- RTT multi-channel autonomous debugging
+- See [future/README.md](./future/README.md) for details
 
 See [docs/LESSON_PLAN.md](./docs/LESSON_PLAN.md) for the full curriculum.
 
@@ -53,25 +57,18 @@ cargo run --release  # Flash to ESP32-C6
 
 See [QUICKSTART.md](./QUICKSTART.md) for detailed instructions.
 
-## 🔧 RTT Debugging & Validation Tools
+## 🔧 Debugging
 
-This project includes comprehensive RTT (Real-Time Transfer) tools for automated firmware testing and debugging:
+This project demonstrates multiple debugging approaches:
 
-```bash
-/rtt tutorial                    # Learn RTT best practices interactively
-/rtt sweep --device esp32c6     # Performance characterization for your device
-/rtt validate src/bin/main.rs   # Automated firmware testing on hardware
-/rtt analyze logs.txt           # Log analysis and parsing
-/rtt tools                       # System diagnostics and reference
-/rtt guide                       # Open full RTT Mastery reference
-```
-
-See **[`.claude/rtt-guide.md`](./.claude/rtt-guide.md)** for complete reference documentation.
+- **GDB + OpenOCD** (Lesson 07) - Hardware debugging with breakpoints, watchpoints, and variable inspection
+- **UART Variable Streaming** (Lesson 08) - Real-time variable monitoring with GDB tandem debugging
+- **RTT Tools** (Future work) - See `future/` directory for RTT exploration and tools
 
 ## 📖 Documentation
 
 - **[docs/LESSON_PLAN.md](./docs/LESSON_PLAN.md)** - Full curriculum overview
-- **[.claude/rtt-guide.md](./.claude/rtt-guide.md)** - RTT mastery reference
+- **[future/README.md](./future/README.md)** - Advanced exploration and RTT tools
 - **[docs/REMOTE_DEVELOPMENT.md](./docs/REMOTE_DEVELOPMENT.md)** - Remote build setup
 - **[Official esp-hal Docs](https://docs.esp-rs.org/esp-hal/)** - HAL reference
 - **[esp-hal Examples](https://github.com/esp-rs/esp-hal/tree/main/examples)** - Code examples
