@@ -1,863 +1,409 @@
 ---
-description: Complete ESP32-C6 lesson development workflow - from PRD to hardware-validated PR
+description: Complete ESP32-C6 lesson development workflow - from PRD to hardware-validated PR with GDB-based progressive commits
 ---
 
-# /gen-lesson - ESP32-C6 Lesson Development Workflow
+# /gen-lesson - ESP32-C6 GDB Lesson Development Workflow
 
-**Purpose**: End-to-end lesson development for ESP32-C6 firmware using esp-hal 1.0.0. Creates high-quality, progressively challenging lessons for engineers learning Rust embedded development on ESP32-C6 with Claude Code.
+**Purpose**: End-to-end lesson development for ESP32-C6 firmware using esp-hal 1.0.0 with GDB-based discovery pedagogy. Creates progressively revealed lessons through commit-by-commit exploration where students use GDB to discover solutions.
 
-**Target Audience**: Engineers familiar with embedded systems who want to learn esp-hal 1.0.0 Rust development on ESP32-C6 using Claude Code. Not for beginners.
+**Target Audience**: Engineers familiar with embedded systems learning Rust esp-hal 1.0.0 on ESP32-C6 using Claude Code + GDB for interactive debugging.
 
-**Use when**: Creating new lessons, implementing firmware features, or developing HAL peripheral drivers that require systematic development with PRD, tests, and iterative hardware validation.
+**Pedagogy**: Discovery-based learning through progressive commits. Each commit reveals functionality step-by-step. Students use GDB to investigate and discover solutions, not just read completed code.
+
+**Use when**: Creating new GDB-integrated lessons (01-07) following the curriculum in `GDB_LESSON_PLANS.md`.
 
 ---
 
 ## Workflow Overview
 
 ```
-/gen-lesson "Create Lesson 03: I2C sensor driver"
-  ├─ Phase 1: Generate PRD (research → ask questions → document expected behavior)
-  │   └─ STOP: User reviews PRD
-  ├─ Phase 2: Project Setup (copy from previous lesson or create new)
-  ├─ Phase 3: Implementation (collaborative iterative development)
-  │   ├─ Write code with strategic logging
-  │   ├─ Build → Flash → Monitor → Compare → Fix (loop as needed)
-  │   ├─ Use probe-rs debugging when needed
-  │   └─ STOP if stuck and collaborate with user
-  ├─ Phase 4: Testing (mandatory - unit tests + on-device tests)
-  ├─ Phase 5: Hardware Validation (mandatory - user confirms behavior)
-  │   └─ STOP: User validates on hardware
-  └─ Phase 6: Cleanup & PR (format, document, PR)
-```
+/gen-lesson "Create Lesson 03: I2C + GDB"
+  ├─ Phase 0: Review Lesson Plan (read GDB_LESSON_PLANS.md for this lesson)
+  ├─ Phase 1: Proactive Hardware Testing (/test-hardware before implementation)
+  ├─ Phase 2: Project Setup (branch, directory structure, starter code)
+  ├─ Phase 3: Progressive Commit Development
+  │   ├─ Commit 1: "Broken" or minimal firmware (discovery phase)
+  │   ├─ Commit 2: GDB technique #1 (investigation)
+  │   ├─ Commit 3: GDB technique #2 (solution)
+  │   └─ Commit 4+: Additional techniques as needed
+  ├─ Phase 4: Documentation (README with commit-by-commit walkthrough)
+  ├─ Phase 5: Hardware Validation (user confirms)
+  └─ Phase 6: Push branch and create PR
 
-**Time estimate**: 1-3 hours depending on complexity
+**Time estimate**: 2-4 hours depending on complexity
 
 ---
 
-## Phase 1: Generate PRD
+## Phase 0: Review Lesson Plan
 
-**Goal**: Create comprehensive Product Requirements Document with expected behavior patterns
+**Goal**: Understand the lesson structure, GDB techniques, and commit strategy BEFORE writing code.
 
-### Step 1.1: Research and Analyze (Silent)
+### Step 0.1: Read Lesson Specification
 
-**Before asking questions**, research the codebase and esp-hal APIs:
+**MANDATORY**: Read the lesson plan from `GDB_LESSON_PLANS.md` for the target lesson number.
 
-1. **Search existing lessons** for related functionality:
-   - Check `lessons/01-blinky/` for patterns
-   - Review existing PRDs in `docs/prd/`
-   - Look at esp-hal examples for the peripheral
+**Extract key information**:
+1. **GDB Techniques** - Which 2-3 techniques will be taught?
+2. **Commit Structure** - What does each commit demonstrate?
+3. **Demo Scripts** - What GDB commands will students run?
+4. **Hardware Requirements** - What components are needed?
+5. **Learning Objectives** - What's the "wow moment"?
 
-2. **Understand esp-hal 1.0.0 APIs**:
-   - What peripherals are involved? (GPIO, I2C, SPI, UART, etc.)
-   - What esp-hal modules provide the functionality?
-   - What configuration structs are needed?
-   - What pins are available on ESP32-C6?
+**Example for Lesson 01**:
+- **Techniques**: Memory inspection/writes, GDB variables (bit math), function calls
+- **Commits**:
+  - Commit 1: Broken firmware (missing GPIO enable)
+  - Commit 2: GDB register control (bit math)
+  - Commit 3: Function calls (remote control)
+- **Wow Moment**: Calling `led_toggle()` from GDB while firmware runs
 
-3. **Identify hardware requirements**:
-   - What external components are needed?
-   - What pins will be used?
-   - What electrical characteristics matter?
-   - What datasheets should be referenced?
+### Step 0.2: Ask Clarifying Questions (If Needed)
 
-4. **Identify knowledge gaps**:
-   - What can't be determined from docs alone?
-   - What requires user preference/decision?
-   - What scope clarification is needed?
+**Only ask if lesson plan is unclear or missing details**:
+- Pin assignments not specified?
+- Hardware setup ambiguous?
+- Scope unclear?
 
-**DO NOT present research findings to user** - use this to formulate smart questions.
-
-### Step 1.2: Ask Clarifying Questions
-
-**After research**, ask targeted questions (max 5 unless user requests more):
-
-**Question Guidelines**:
-- **Be specific** - reference hardware, pins, APIs found during research
-- **Offer options** when possible (makes answering easier)
-- **Skip obvious** - if you can infer from similar lessons, don't ask
-- **Focus on**: hardware setup, peripheral choice, sensor/device selection, use cases, success criteria
-
-**Example questions**:
-- "Which I2C sensor? (BME280, MPU6050, or other?)"
-- "What readings should we display? (temperature, humidity, accel?)"
-- "Which pins? Suggest: GPIO6 (SDA), GPIO7 (SCL)"
-- "What I2C speed? (100kHz standard or 400kHz fast?)"
-- "Should we use async or blocking I2C?"
-
-**Wait for user responses** before proceeding.
-
-### Step 1.3: Generate PRD
-
-**PRD Structure** (save to `docs/prd/lesson-XX-{feature-name}-prd.md`):
-
-```markdown
-# Lesson XX: {Feature Name} - PRD
-
-## Overview
-- **Lesson Number**: XX
-- **Feature**: {Feature Name}
-- **Duration**: {Estimated time}
-- **Difficulty**: Intermediate/Advanced
-- **Prerequisites**: {Previous lessons}
-
-## Learning Objectives
-What engineers will learn:
-1. {Objective 1}
-2. {Objective 2}
-3. {Objective 3}
-
-## Hardware Requirements
-- ESP32-C6 development board
-- {External components}
-- {Wiring/connections}
-
-**Pin Configuration**:
-- GPIO{X}: {Function} - {Purpose}
-- GPIO{Y}: {Function} - {Purpose}
-
-## Software Requirements
-- esp-hal 1.0.0 features: {list features}
-- Additional crates: {list}
-- probe-rs for debugging (optional but recommended)
-
-## Expected Behavior
-
-### Serial Output Patterns (Reference Behavior)
-This is the "oracle" - what success looks like:
-
-```
-🚀 Starting Lesson XX: {Feature}
-✓ {Peripheral} initialized
-✓ GPIO{X} configured as {function}
-✓ {Device} detected at address 0x{XX}
-📊 Reading sensor...
-  Temperature: 25.3°C
-  Humidity: 45.2%
-✓ Reading complete
-{Loop pattern if applicable}
-```
-
-**Critical patterns to verify**:
-- ✅ Initialization messages (with checkmarks)
-- ✅ Peripheral detection/configuration
-- ✅ Data readings with expected format
-- ❌ No ERROR or panic messages
-- ⚠️ Warnings are acceptable for {specific cases}
-
-### Register States to Verify (probe-rs inspection points)
-When using probe-rs debugger, these registers should show:
-
-1. **After peripheral initialization**:
-   - `{PERIPHERAL}_CONF_REG` (0x{address}): {expected value}
-   - `GPIO_OUT_REG` (0x600A4004): GPIO{X} = {state}
-
-2. **During operation**:
-   - `{PERIPHERAL}_STATUS_REG` (0x{address}): {expected value}
-   - `{PERIPHERAL}_DATA_REG` (0x{address}): {expected range}
-
-## Functional Requirements
-1. **REQ-1**: {Requirement}
-2. **REQ-2**: {Requirement}
-3. **REQ-3**: {Requirement}
-
-## Technical Specifications
-- **Timing**: {Response time, update rate, delays}
-- **Power**: {Current consumption, sleep modes}
-- **Memory**: {Flash/RAM usage estimates}
-- **Error Handling**: {How to handle failures}
-
-## Implementation Plan
-
-### Code Structure
-```rust
-// Pin definitions
-const PIN_X: u8 = {X};
-const PIN_Y: u8 = {Y};
-
-// Peripheral configuration
-// Device driver (if external device)
-// Main loop
-```
-
-### Key Implementation Points
-1. Initialize peripheral with correct configuration
-2. Add strategic logging at:
-   - Initialization start/complete
-   - Before/after peripheral operations
-   - Data acquisition points
-   - Error conditions
-3. Mark potential breakpoint locations in comments
-4. Handle errors gracefully with Result types
-
-### Logging Strategy
-- **info!()**: Major milestones (init, state changes, readings)
-- **debug!()**: Detailed steps (register writes, calculations)
-- **warn!()**: Recoverable issues (retries, degraded mode)
-- **error!()**: Failures (peripheral not found, communication error)
-
-## Testing Requirements (Mandatory)
-
-### Unit Tests (`src/lib.rs` or `tests/`)
-- Test calculation logic (no hardware needed)
-- Test state machines
-- Test data parsing/formatting
-- Mock peripheral responses
-
-### On-Device Tests (`tests/on_device.rs` using defmt-test - if applicable)
-- Test peripheral initialization
-- Test read/write operations
-- Test error handling
-- Test timing requirements
-
-**Note**: On-device tests are optional for simple lessons but recommended for complex peripheral interactions.
-
-## Success Criteria (All Mandatory)
-- [x] Code builds without warnings
-- [x] All unit tests pass
-- [x] All on-device tests pass (if applicable)
-- [x] Serial output matches expected patterns
-- [x] probe-rs inspection shows correct register states (if used)
-- [x] Hardware behavior matches specification
-- [x] User validates on real hardware
-
-## Edge Cases
-1. **{Edge case 1}**: {How to handle}
-2. **{Edge case 2}**: {How to handle}
-3. **{Edge case 3}**: {How to handle}
-
-## References
-- [esp-hal {Peripheral} Module](https://docs.esp-rs.org/esp-hal/)
-- [{Device} Datasheet](link)
-- [ESP32-C6 Technical Reference](https://www.espressif.com/sites/default/files/documentation/esp32-c6_technical_reference_manual_en.pdf)
+**Otherwise**: Proceed directly to hardware testing.
 
 ---
 
-**Status**: Draft
-**Next Steps**: Implementation Phase
+## Phase 1: Proactive Hardware Testing
+
+**Goal**: Verify hardware works BEFORE writing lesson code. Never teach with untested hardware.
+
+**CRITICAL**: Use `/test-hardware` command to validate hardware setup.
+
+### Step 1.1: Run Hardware Test
+
+```
+/test-hardware {peripheral} {pins}
 ```
 
-### Step 1.4: User Checkpoint
+**Examples**:
+```
+/test-hardware gpio 12
+/test-hardware uart 16 17
+/test-hardware i2c 6 7
+```
 
-**Present PRD and ask**:
-> I've created a PRD for this lesson. Please review:
->
-> [Link to PRD file]
->
-> Key points:
-> - Hardware: {summary}
-> - Expected behavior: {summary of serial output}
-> - Success criteria: {summary}
->
-> Does this accurately capture what we're building? Any missing requirements or concerns?
+**What this does**:
+- Creates minimal test firmware
+- Builds and flashes to hardware
+- Reports success/failure
+- Saves working configuration
 
-**Wait for user approval** before proceeding to Phase 2.
+### Step 1.2: Validate Hardware
+
+**If test succeeds**: Document working pins and proceed
+
+**If test fails**:
+- Troubleshoot hardware (wrong pins, loose connections, etc.)
+- Fix and re-test
+- DO NOT proceed until hardware works
+
+**Output**:
+> ✅ Hardware validation complete
+> - GPIO12 working
+> - LED blinks as expected
+> - Pins saved to hardware-config.md
+>
+> Proceeding to project setup...
 
 ---
 
 ## Phase 2: Project Setup
 
-**Goal**: Create lesson directory structure with all necessary files
+**Goal**: Create lesson branch and directory structure with starter code.
 
-**Strategy Options**:
-1. **Copy from previous lesson** (fastest for similar lessons)
-2. **Create from scratch** (for significantly different lessons)
+### Step 2.1: Create Lesson Branch
 
-### Step 2.1: Create Directory Structure
-
-**Option A: Copy from previous lesson (Recommended)**:
 ```bash
-cp -r lessons/{previous-lesson}/ lessons/{XX-lesson-name}/
-# Then update:
-# - Cargo.toml package name
-# - src/bin/main.rs lesson number and description
+# From main branch
+git checkout -b lesson-{NN}-{name}
 ```
 
-**Option B: Generate with esp-generate (Best for new structure)**:
+**Example**: `git checkout -b lesson-03-i2c-gdb`
+
+### Step 2.2: Create Directory Structure
+
+**Copy from previous lesson** (fastest):
 ```bash
-esp-generate --chip esp32c6 lesson-{XX}-{name}
-cd lesson-{XX}-{name}
-# Follow steps in gen-lesson Phase 2 to configure
+cp -r lessons/01-blinky-gdb/ lessons/{NN}-{name}/
 ```
 
-**Option C: Create from scratch**:
+**Then update**:
+- `Cargo.toml` - Package name, version
+- `src/bin/main.rs` - Lesson number, description
+- `.cargo/config.toml` - Verify espflash runner
+- `rust-toolchain.toml` - Verify stable channel
+- `build.rs` - Copy unchanged
+
+**Standard structure**:
+```
+lessons/{NN}-{name}/
+├── src/
+│   ├── bin/
+│   │   └── main.rs          # Main firmware (progressive commits)
+│   └── lib.rs               # Empty (not used for simple lessons)
+├── .cargo/
+│   └── config.toml          # espflash runner
+├── Cargo.toml               # Dependencies + [[bin]] section
+├── rust-toolchain.toml      # Rust stable + RISC-V target
+├── build.rs                 # Helpful linker errors
+└── README.md                # Commit-by-commit walkthrough (created in Phase 4)
+```
+
+### Step 2.3: Verify Build
+
 ```bash
-mkdir -p lessons/{XX-lesson-name}/{src/bin,tests,.cargo}
-```
-
-### Step 2.2: Create Cargo.toml
-
-**Standard template for ESP32-C6 lessons**:
-
-```toml
-[package]
-name = "lesson-{XX}-{name}"
-version = "0.1.0"
-edition = "2021"
-rust-version = "1.88"
-
-[[bin]]
-name = "lesson-{XX}-{name}"
-path = "./src/bin/main.rs"
-
-[dependencies]
-# Hardware abstraction layer
-esp-hal = { version = "1.0.0", features = ["esp32c6", "unstable"] }
-
-# Panic handler with backtrace
-esp-backtrace = { version = "0.15", features = ["esp32c6", "panic-handler", "println"] }
-
-# Serial printing and logging
-esp-println = { version = "0.13", features = ["esp32c6", "log"] }
-log = "0.4"
-
-# Bootloader app descriptor
-esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c6"] }
-
-# Critical sections
-critical-section = "1.2.0"
-
-# Add lesson-specific dependencies here
-# Example for I2C lesson:
-# embedded-hal = "1.0"
-
-[dev-dependencies]
-# On-device testing (optional, add if needed)
-# defmt = "0.3"
-# defmt-rtt = "0.4"
-# defmt-test = "0.3"
-# panic-probe = { version = "0.3", features = ["print-defmt"] }
-
-[profile.dev]
-opt-level = "s"
-
-[profile.release]
-codegen-units = 1
-debug = 2
-debug-assertions = false
-incremental = false
-lto = 'fat'
-opt-level = 's'
-overflow-checks = false
-```
-
-### Step 2.3: Create .cargo/config.toml
-
-```toml
-[target.riscv32imac-unknown-none-elf]
-runner = "espflash flash --chip esp32c6"
-
-[env]
-
-[build]
-rustflags = [
-  "-C", "force-frame-pointers",
-]
-
-target = "riscv32imac-unknown-none-elf"
-
-[unstable]
-build-std = ["core"]
-
-[alias]
-br = "build --release"
-ck = "check"
-ff = "run --release"
-```
-
-### Step 2.4: Create rust-toolchain.toml
-
-```toml
-[toolchain]
-channel    = "stable"
-components = ["rust-src"]
-targets = ["riscv32imac-unknown-none-elf"]
-```
-
-### Step 2.5: Create build.rs
-
-Copy from previous lesson or create:
-
-```rust
-fn main() {
-    linker_be_nice();
-    // make sure linkall.x is the last linker script (otherwise might cause problems with flip-link)
-    println!("cargo:rustc-link-arg=-Tlinkall.x");
-}
-
-fn linker_be_nice() {
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() > 1 {
-        let kind = &args[1];
-        let what = &args[2];
-
-        match kind.as_str() {
-            "undefined-symbol" => match what.as_str() {
-                "_defmt_timestamp" => {
-                    eprintln!();
-                    eprintln!("💡 `defmt` not found - make sure `defmt.x` is added as a linker script and you have included `use defmt_rtt as _;`");
-                    eprintln!();
-                }
-                "_stack_start" => {
-                    eprintln!();
-                    eprintln!("💡 Is the linker script `linkall.x` missing?");
-                    eprintln!();
-                }
-                "esp_rtos_initialized"
-                | "esp_rtos_yield_task"
-                | "esp_rtos_task_create" => {
-                    eprintln!();
-                    eprintln!("💡 `esp-radio` has no scheduler enabled. Make sure you have initialized `esp-rtos` or provided an external scheduler.");
-                    eprintln!();
-                }
-                "embedded_test_linker_file_not_added_to_rustflags" => {
-                    eprintln!();
-                    eprintln!("💡 `embedded-test` not found - make sure `embedded-test.x` is added as a linker script for tests");
-                    eprintln!();
-                }
-                _ => (),
-            },
-            // we don't have anything helpful for "missing-lib" yet
-            _ => {
-                std::process::exit(1);
-            }
-        }
-
-        std::process::exit(0);
-    }
-
-    println!(
-        "cargo:rustc-link-arg=--error-handling-script={}",
-        std::env::current_exe().unwrap().display()
-    );
-}
-```
-
-### Step 2.6: Create Skeleton Files
-
-**src/bin/main.rs** (skeleton):
-```rust
-//! # Lesson {XX}: {Feature Name}
-//!
-//! {Brief description}
-//!
-//! **Hardware:**
-//! - ESP32-C6 development board
-//! - {External components}
-//!
-//! **Pins:**
-//! - GPIO{X}: {Function}
-//!
-//! **What You'll Learn:**
-//! - {Learning objective 1}
-//! - {Learning objective 2}
-
-#![no_std]
-#![no_main]
-
-use esp_hal::{
-    delay::Delay,
-    main,
-};
-use log::info;
-
-#[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! {
-    loop {}
-}
-
-esp_bootloader_esp_idf::esp_app_desc!();
-
-// ============================================================================
-// PIN CONFIGURATION
-// ============================================================================
-
-const PIN_X: u8 = {X};
-
-// ============================================================================
-// MAIN
-// ============================================================================
-
-#[main]
-fn main() -> ! {
-    // Initialize logging
-    esp_println::logger::init_logger_from_env();
-    log::set_max_level(log::LevelFilter::Info);
-
-    info!("🚀 Starting Lesson {XX}: {Feature}");
-
-    // Initialize hardware
-    let peripherals = esp_hal::init(esp_hal::Config::default());
-    let delay = Delay::new();
-
-    // TODO: Peripheral initialization
-
-    info!("✓ Initialization complete");
-
-    loop {
-        // TODO: Main loop
-        delay.delay_millis(1000);
-    }
-}
-```
-
-**tests/on_device.rs** (optional - skeleton if needed):
-```rust
-//! On-device tests using defmt-test
-#![no_std]
-#![no_main]
-
-use defmt_rtt as _;
-use panic_probe as _;
-
-#[defmt_test::tests]
-mod tests {
-    use defmt::assert;
-
-    #[init]
-    fn init() -> () {
-        // Initialize hardware for tests
-        ()
-    }
-
-    #[test]
-    fn test_peripheral_init(_state: &mut ()) {
-        // TODO: Test peripheral initialization
-        assert!(true);
-    }
-}
-```
-
-### Step 2.7: Summary (Informational)
-
-> ✅ Project structure created:
-> - `lessons/{XX-lesson-name}/`
-> - Cargo.toml configured
-> - .cargo/config.toml with espflash runner
-> - rust-toolchain.toml
-> - build.rs for helpful linker errors
-> - Skeleton main.rs
->
-> Proceeding to implementation...
-
----
-
-## Phase 3: Implementation (Collaborative Iterative Development)
-
-**Goal**: Implement solution through collaborative build-flash-monitor iteration with probe-rs debugging when needed
-
-**Note**: This phase is collaborative - I'll communicate progress and ask for help when stuck. Not a silent autonomous loop.
-
-### Step 3.1: Add Strategic Logging
-
-**Before writing implementation**, plan logging points:
-
-```rust
-// Example logging strategy
-info!("🚀 Starting Lesson {XX}: {Feature}");          // Startup
-info!("✓ {Peripheral} initialized");                  // Post-config
-info!("📊 {Data}: {value}");                          // Data acquired
-
-// Mark breakpoint locations for debugging
-// 📍 BREAKPOINT #1: Inspect peripheral registers here
-```
-
-**Logging Principles**:
-- ✅ Use info!() for user-visible milestones
-- ✅ Use debug!() for development insights (enable with RUST_LOG=debug)
-- ✅ Use warn!() for recoverable issues
-- ✅ Use error!() for failures
-- ✅ Mark breakpoint locations with `// 📍 BREAKPOINT #N` comments
-- ✅ Include emojis for visual scanning (🚀 ✓ 📊 ⚠️ ❌)
-
-### Step 3.2: Implement Core Functionality
-
-**Write the implementation** based on PRD requirements:
-
-1. **Peripheral initialization**
-   - Configure pins
-   - Initialize peripheral with correct settings
-   - Verify initialization succeeded
-   - Log success/failure
-
-2. **Main functionality**
-   - Implement core feature logic
-   - Add error handling with Result types
-   - Log operations at appropriate levels
-   - Keep code simple and readable (for YouTube format)
-
-3. **Error handling**
-   - Handle peripheral errors gracefully
-   - Log errors with context
-   - Retry when appropriate
-   - Never panic silently
-
-### Step 3.3: Iterative Development Loop (Collaborative)
-
-**IMPORTANT**: This is a collaborative process. I'll communicate progress and ask for help when needed.
-
-**At start, explain approach**:
-> Starting implementation for Lesson {XX}: {Feature}
->
-> Implementation approach based on PRD:
-> 1. Initialize {peripheral} with {configuration}
-> 2. Configure GPIO{X} as {function}
-> 3. {Main functionality}
->
-> Beginning build-flash-monitor cycle...
-
-**Iteration cycle**:
-
-```
-Iteration N:
-├─ Build code
-├─ Flash with espflash
-├─ Monitor serial output
-├─ Compare output against expected patterns from PRD
-├─ Analyze differences
-├─ Decide: Fix code OR use probe-rs debugging OR ask for help
-└─ Continue or stop
-```
-
-**Detailed steps**:
-
-**1. Build the code**:
-```bash
-cd lessons/{XX-lesson-name}
+cd lessons/{NN}-{name}
 cargo build --release
 ```
 
-**2. Flash and monitor**:
-```bash
-cargo run --release
-# This uses espflash from .cargo/config.toml
-# Monitor output with espflash monitor or similar
-```
+**If build fails**: Fix dependencies, configuration, then rebuild
 
-**3. Compare output against expected patterns** (from PRD):
-- Extract actual serial output
-- Compare against "Expected Behavior → Serial Output Patterns"
-- Identify missing patterns
-- Identify unexpected patterns
-
-**4. Analyze and form hypothesis**:
-
-**Progress indicators**:
-- ✅ More expected patterns appearing
-- ✅ Fewer errors/panics
-- ✅ Output getting closer to expected format
-- ✅ New debug information revealed
-
-**Stuck indicators**:
-- ❌ Same errors for 2+ iterations
-- ❌ No serial output at all
-- ❌ Unexpected hardware behavior
-- ❌ Unclear what to fix
-
-**5. Decision point**:
-
-**If making progress**: Fix code based on output and explain the fix
-
-**If stuck**: Ask user for help with clear explanation of issue
-
-**If registers need inspection**: Suggest probe-rs debugging
-
-**6. Communicate progress** after each iteration:
-
-> **Iteration {N}**:
-> - Build: ✅ Success
-> - Flash: ✅ Success
-> - Serial output analysis:
->   - ✅ Found: "🚀 Starting Lesson {XX}"
->   - ✅ Found: "✓ GPIO{X} configured"
->   - ❌ Missing: "✓ {Peripheral} initialized"
->   - ❌ Found ERROR: "{error message}"
-> - Hypothesis: {peripheral} initialization failing due to {reason}
-> - Fix attempted: {description of fix}
-> - Next: Rebuild and test...
-
-### Step 3.4: probe-rs Debugging (When Needed)
-
-**Triggered when**:
-- Serial output doesn't reveal root cause
-- Suspect hardware/register issues
-- Need to verify peripheral state
-- After multiple iterations with unclear issues
-
-**Debugging workflow**:
-
-**1. Identify inspection point** in code
-
-**2. Suggest debugging approach to user**:
-> 🔍 **probe-rs Debugging May Help**
->
-> Serial output shows: "{actual output}"
-> Expected: "{expected output}"
->
-> To diagnose, we could inspect registers with probe-rs.
-> Are you set up to use probe-rs for debugging?
-
-**3. Collaborate with user** on debugging findings
-
-### Step 3.5: Implementation Complete
-
-**When serial output matches expected patterns**:
-> ✅ **Implementation successful!**
->
-> **Serial output** (actual):
-> ```
-> {captured serial output}
-> ```
->
-> **Matches expected patterns**:
-> - ✅ Initialization messages
-> - ✅ Peripheral configuration
-> - ✅ Data readings
-> - ✅ No errors or panics
->
-> **Iterations**: {N} build-flash-monitor cycles
->
-> Proceeding to testing phase...
+**If build succeeds**: Proceed to progressive commits
 
 ---
 
-## Phase 4: Testing (Mandatory)
+## Phase 3: Progressive Commit Development
 
-**Goal**: Create and run tests to verify functionality
+**Goal**: Implement lesson through progressive commits following the commit structure from `GDB_LESSON_PLANS.md`.
 
-**Note**: Testing is mandatory for all lessons. Adapt testing approach to lesson complexity.
+**Pedagogy**: Each commit builds on the previous, revealing functionality step-by-step. Students investigate with GDB between commits.
 
-### Step 4.1: Write Unit Tests
+### Step 3.1: Commit 1 - Discovery Phase
 
-**Create unit tests** for logic that doesn't require hardware (if applicable):
+**Purpose**: Give students something broken or minimal to investigate with GDB.
 
-**src/lib.rs** (if needed for testable logic):
+**Pattern A: Broken Firmware** (Lesson 01, 04)
+- Code that compiles but doesn't work
+- Missing configuration (GPIO enable, I2C clock, etc.)
+- Students use GDB to find the issue
+
+**Pattern B: Minimal Firmware** (Lesson 02, 03)
+- Bare minimum initialization
+- No actual functionality yet
+- Students inspect registers to understand state
+
+**Example (Lesson 01, Commit 1)**:
 ```rust
-// Move testable logic to lib.rs
+// Broken LED blink - missing GPIO enable!
+#[main]
+fn main() -> ! {
+    let peripherals = esp_hal::init(esp_hal::Config::default());
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    // Missing: GPIO enable configuration!
 
-    #[test]
-    fn test_calculation_logic() {
-        // Test data conversion, calculations, etc.
-        let raw_value = 0x1234;
-        let converted = convert_value(raw_value);
-        assert_eq!(converted, expected);
-    }
-
-    #[test]
-    fn test_data_parsing() {
-        // Test parsing
-        let data = [0x12, 0x34];
-        let result = parse_data(&data);
-        assert!(result.is_ok());
+    loop {
+        // Try to toggle LED - won't work
+        unsafe {
+            let gpio_out = 0x60091008 as *mut u32;
+            *gpio_out ^= 1 << 12;  // Won't work - GPIO not enabled
+        }
+        delay_ms(500);
     }
 }
 ```
 
-**Run unit tests**:
-```bash
-cargo test --lib
+**Commit message**:
+```
+feat(lesson-01): Commit 1 - Broken LED blink
+
+LED won't toggle. Use GDB to investigate:
+- Inspect GPIO registers
+- Find missing enable configuration
+- Discover the bug
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
-**Note**: For simple lessons with mostly hardware interaction, unit tests may be minimal or skipped. Document why.
+**Build and flash**:
+```bash
+cargo build --release
+cargo run --release
+```
 
-### Step 4.2: Hardware Testing
+**Verify**: LED doesn't blink (expected behavior for commit 1)
 
-**Manual testing** (always required):
-- Flash firmware
-- Verify serial output matches expected patterns
-- Verify hardware behavior (LEDs, sensors, etc.)
-- Document observed behavior
+### Step 3.2: Commit 2 - First GDB Technique
 
-**On-device tests** (optional for simple lessons):
-- Use defmt-test for complex peripheral interactions
-- Test initialization, read/write, error handling
+**Purpose**: Introduce first GDB technique from lesson plan.
 
-### Step 4.3: Test Summary
+**Common patterns**:
+- Memory inspection/writes (Lesson 01)
+- Watchpoints (Lesson 02)
+- Disassembly (Lesson 05)
+- Remote memory dumps (Lesson 06)
 
-> ✅ **Testing complete**:
-> - Manual testing: Verified on hardware
-> - Serial output: Matches expected patterns
-> - Hardware behavior: Confirmed
-> - Unit tests: {N} passed (if applicable)
->
-> Proceeding to hardware validation...
+**Example (Lesson 01, Commit 2)**:
+```rust
+// Remove LED code, control via GDB
+#[main]
+fn main() -> ! {
+    let peripherals = esp_hal::init(esp_hal::Config::default());
+
+    // Enable GPIO12
+    unsafe {
+        let gpio_enable = 0x60091024 as *mut u32;
+        *gpio_enable |= 1 << 12;
+    }
+
+    // Empty loop - control LED from GDB
+    loop {
+        // Students will use GDB to write to GPIO_OUT register
+        delay_ms(100);
+    }
+}
+```
+
+**Commit message**:
+```
+feat(lesson-01): Commit 2 - GDB register control
+
+Enable GPIO, then control LED via GDB:
+- set $gpio = 12
+- set $mask = 1 << $gpio
+- set *(uint32_t*)0x60091008 = $mask  # LED ON
+- set *(uint32_t*)0x6009100C = $mask  # LED OFF
+
+Teaches: Memory writes + GDB variables (bit math)
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Build and flash**:
+```bash
+cargo build --release
+cargo run --release
+# Then connect GDB and run commands from commit message
+```
+
+### Step 3.3: Commit 3 - Second GDB Technique
+
+**Purpose**: Introduce second GDB technique (usually the "wow moment").
+
+**Example (Lesson 01, Commit 3)**:
+```rust
+// Add functions callable from GDB
+#[no_mangle]
+pub extern "C" fn led_on() {
+    unsafe {
+        let gpio_out = 0x60091008 as *mut u32;
+        *gpio_out |= 1 << 12;
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn led_off() {
+    unsafe {
+        let gpio_out = 0x6009100C as *mut u32;
+        *gpio_out |= 1 << 12;
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn led_toggle() {
+    unsafe {
+        let gpio_out = 0x60091018 as *mut u32;
+        *gpio_out |= 1 << 12;
+    }
+}
+
+#[main]
+fn main() -> ! {
+    let peripherals = esp_hal::init(esp_hal::Config::default());
+
+    unsafe {
+        let gpio_enable = 0x60091024 as *mut u32;
+        *gpio_enable |= 1 << 12;
+    }
+
+    loop {
+        delay_ms(100);
+    }
+}
+```
+
+**Commit message**:
+```
+feat(lesson-01): Commit 3 - GDB function calls
+
+Add led_on(), led_off(), led_toggle() functions.
+Call from GDB while firmware runs:
+
+(gdb) call led_on()
+(gdb) call led_off()
+(gdb) call led_toggle()
+
+"Wow moment" - remote control from debugger!
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+### Step 3.4: Additional Commits (If Needed)
+
+**Follow lesson plan** - some lessons have 4-5 commits.
+
+**Lesson 02 example**:
+- Commit 1: UART init (minimal)
+- Commit 2: Add data streaming
+- Commit 3: Introduce DMA
+- Commit 4: Watchpoints for buffer overflow
+- Commit 5: Conditional breakpoints for errors
+
+**Pattern**:
+1. Build on previous commit
+2. Add one new concept or GDB technique
+3. Keep commit focused and small
+4. Test on hardware before committing
+
+### Step 3.5: Build-Flash-Test Loop
+
+**For each commit**:
+
+1. **Write code** following lesson plan
+2. **Build**: `cargo build --release`
+3. **Flash**: `cargo run --release`
+4. **Test with GDB** (run demo commands from lesson plan)
+5. **Verify expected behavior** (LED blinks, UART streams, etc.)
+6. **Commit** with descriptive message
+7. **Repeat** for next commit
+
+**If issues occur**:
+- Use GDB to debug (practice what you preach!)
+- Fix and re-test
+- Don't commit broken code
 
 ---
 
-## Phase 5: Hardware Validation (Mandatory)
+## Phase 4: Documentation
 
-**Goal**: User confirms hardware behavior matches expected behavior from PRD
+**Goal**: Create README with commit-by-commit walkthrough guiding students through discovery process.
 
-**This phase is MANDATORY for all lessons.**
+### Step 4.1: Create README.md
 
-### Step 5.1: Prepare Validation Instructions
-
-> 📋 **Hardware Validation Required**
->
-> The firmware is ready for final validation. Please verify the following:
->
-> **Setup**:
-> 1. Hardware connections:
->    - {Component 1} connected to GPIO{X}
->    - {Component 2} connected to GPIO{Y}
->    - Power: USB-C cable
->
-> **Flash the firmware**:
-> ```bash
-> cd lessons/{XX-lesson-name}
-> cargo run --release
-> ```
->
-> **Expected behavior**:
-> - [ ] Serial output shows: "🚀 Starting Lesson {XX}"
-> - [ ] {Observable behavior 1}
-> - [ ] {Observable behavior 2}
-> - [ ] Serial output matches expected pattern
-> - [ ] No ERROR or panic messages
->
-> **Serial output should match**:
-> ```
-> {Expected serial output from PRD}
-> ```
-
-### Step 5.2: Validation Checkpoint (USER APPROVAL REQUIRED)
-
-**Ask for confirmation**:
-> **Validation Results**
->
-> Did the hardware behave as expected?
->
-> - Type **"yes"** if everything worked correctly
-> - Type **"issue"** and describe what went wrong
-
-**Wait for user response**
-
-**If approved**: Proceed to cleanup
-
-**If issues**: Collaborate to fix and re-test
-
----
-
-## Phase 6: Cleanup & Documentation
-
-**Goal**: Production-ready code with documentation and commit
-
-### Step 6.1: Create Lesson README
-
-**Create `lessons/{XX-lesson-name}/README.md`**:
+**Structure** (follow lesson-01 pattern):
 
 ```markdown
-# Lesson {XX}: {Feature Name}
+# Lesson {NN}: {Feature} + GDB
 
-{Brief description of what this lesson teaches}
+{Brief description of what students will discover}
 
 ## Learning Objectives
 
-- {Objective 1}
-- {Objective 2}
-- {Objective 3}
+By working through this lesson's commits, you'll learn:
+- {GDB technique 1}
+- {GDB technique 2}
+- {GDB technique 3}
+- {Peripheral concept}
 
 ## Hardware Requirements
 
@@ -871,44 +417,83 @@ cargo test --lib
 ESP32-C6        {Component}
 --------        ----------
 GPIO{X}    -->  {Pin}
-GPIO{Y}    -->  {Pin}
 GND        -->  GND
 ```
 
-## What You'll Learn
-
-This lesson demonstrates:
-- {Key concept 1}
-- {Key concept 2}
-- {Key concept 3}
-
-## Build & Flash
+## Quick Start
 
 ```bash
-cd lessons/{XX-lesson-name}
+cd lessons/{NN}-{name}
 
-# Build
+# Checkout first commit to start discovery
+git checkout {commit-hash-1}
+
+# Build and flash
 cargo build --release
-
-# Flash to ESP32-C6
 cargo run --release
+
+# Follow commit-by-commit walkthrough below
 ```
 
-## Expected Output
+## Commit-by-Commit Walkthrough
 
-When you flash and run this lesson, you should see:
+This lesson uses progressive commits to reveal functionality step-by-step.
+Each commit builds on the previous, teaching new GDB techniques.
 
+### Commit 1: {Title}
+
+**What it does**: {Brief description}
+
+**Expected behavior**: {What happens when you flash}
+
+**Your task**: {What student should investigate with GDB}
+
+**GDB commands to try**:
+```gdb
+{Demo commands from GDB_LESSON_PLANS.md}
 ```
-{Expected serial output from PRD}
+
+**What you'll discover**: {Key insight}
+
+**Next**: `git checkout {commit-hash-2}` to see the solution
+
+---
+
+### Commit 2: {Title}
+
+**What it does**: {Brief description}
+
+**Expected behavior**: {What happens}
+
+**Your task**: {Investigation task}
+
+**GDB commands**:
+```gdb
+{Demo commands}
 ```
 
-## Code Structure
+**What you'll learn**: {Key GDB technique}
 
-- `src/bin/main.rs` - Main firmware implementation
-- `src/lib.rs` - Library code (empty, not used)
-- `Cargo.toml` - Project manifest with `[[bin]]` section pointing to `src/bin/main.rs`
-- `.cargo/config.toml` - Build configuration with espflash runner
-- `rust-toolchain.toml` - Rust toolchain and RISC-V target
+**Next**: `git checkout {commit-hash-3}`
+
+---
+
+### Commit 3: {Title}
+
+**What it does**: {Brief description}
+
+**Expected behavior**: {What happens}
+
+**The "wow moment"**: {Most impressive GDB capability}
+
+**GDB commands**:
+```gdb
+{Demo commands}
+```
+
+**What you'll discover**: {Key insight}
+
+---
 
 ## Key Concepts
 
@@ -917,6 +502,27 @@ When you flash and run this lesson, you should see:
 
 ### {Concept 2}
 {Explanation}
+
+## GDB Reference
+
+**Connecting GDB**:
+```bash
+# Terminal 1: Run firmware
+cargo run --release
+
+# Terminal 2: Attach GDB
+riscv32-esp-elf-gdb target/riscv32imac-unknown-none-elf/release/{binary}
+(gdb) target remote :3333
+```
+
+**Useful commands**:
+- `info registers` - Show all registers
+- `x/16x 0x60091008` - Examine memory (hex)
+- `set *(uint32_t*)0x60091008 = 0x1000` - Write memory
+- `call function_name()` - Call Rust function
+- `break main` - Set breakpoint
+- `continue` - Resume execution
+- `Ctrl-C` - Pause execution
 
 ## Troubleshooting
 
@@ -927,19 +533,192 @@ When you flash and run this lesson, you should see:
 
 ## Next Steps
 
-- **Lesson {XX+1}**: {Next lesson topic}
+- **Lesson {NN+1}**: {Next lesson topic}
 - Experiment: {Suggested modifications}
 
 ## References
 
+- [GDB_LESSON_PLANS.md](../../GDB_LESSON_PLANS.md) - Full curriculum
+- [GDB_REFERENCE.md](../../GDB_REFERENCE.md) - All GDB capabilities
 - [esp-hal {Peripheral} Docs](link)
-- [{Component} Datasheet](link)
 - [ESP32-C6 Technical Reference](link)
 ```
 
-### Step 6.2: Code Cleanup
+### Step 4.2: Generate Commit Hashes
 
-**Clean up code**:
+**After all commits are done**, generate commit hashes for README:
+
+```bash
+git log --oneline | head -n {commit_count}
+```
+
+**Replace placeholders** in README with actual commit hashes.
+
+### Step 4.3: Update CLAUDE.md (Lesson-Specific)
+
+**Create `lessons/{NN}-{name}/CLAUDE.md`** with lesson-specific pedagogy:
+
+```markdown
+# CLAUDE.md - Lesson {NN} Pedagogy
+
+## Teaching Philosophy
+
+**Discovery-based learning** - Students investigate with GDB, not just read code.
+
+**Progressive commits** - Each commit reveals one concept. Students:
+1. Checkout commit
+2. Flash firmware
+3. Investigate with GDB
+4. Discover insight
+5. Move to next commit
+
+**Collaborative pair programming** - Not formal teaching. Conversational, exploratory.
+
+## Lesson Structure
+
+### Commit 1: {Purpose}
+- {What student sees}
+- {What they investigate}
+- {What they discover}
+
+### Commit 2: {Purpose}
+- {What student sees}
+- {GDB technique introduced}
+- {Key insight}
+
+### Commit 3: {Purpose}
+- {The "wow moment"}
+- {Most impressive capability}
+- {Why this matters}
+
+## GDB Techniques Taught
+
+1. **{Technique 1}**: {Brief description}
+   - Commands: {list}
+   - Use case: {when to use}
+
+2. **{Technique 2}**: {Brief description}
+   - Commands: {list}
+   - Use case: {when to use}
+
+3. **{Technique 3}**: {Brief description}
+   - Commands: {list}
+   - Use case: {when to use}
+
+## Interaction Style
+
+**✅ DO**:
+- Ask: "What do you see when you inspect that register?"
+- Suggest: "Try calling led_toggle() from GDB"
+- Collaborate: "Let's investigate the GPIO enable register together"
+- Encourage: "That's interesting! What happens if you write 0x1000?"
+
+**❌ DON'T**:
+- Lecture: "The GPIO peripheral requires..."
+- Formal: "In this lesson you will learn..."
+- Passive: "Here's the solution, type this"
+
+**Tone**: Pair programming buddy, not professor.
+
+## Hardware Testing
+
+**ALWAYS test before teaching**:
+```bash
+/test-hardware {peripheral} {pins}
+```
+
+**Never teach with untested hardware.**
+
+## Student Questions
+
+**Proactive guidance**:
+- Link to GDB_REFERENCE.md for deep dives
+- Point to commit history for comparison
+- Encourage experimentation: "What if you change that value?"
+
+**When stuck**:
+- Review GDB commands together
+- Inspect registers collaboratively
+- Suggest alternative investigation approaches
+
+---
+
+**Last Updated**: {date}
+**Lesson Status**: {Complete/In Progress}
+```
+
+---
+
+## Phase 5: Hardware Validation
+
+**Goal**: User confirms lesson works on real hardware through all commits.
+
+### Step 5.1: Validation Instructions
+
+> 📋 **Hardware Validation Required**
+>
+> The lesson is ready for validation. Please test the commit progression:
+>
+> **Setup**:
+> 1. Connect hardware: {components}
+> 2. Navigate to lesson: `cd lessons/{NN}-{name}`
+>
+> **Test each commit**:
+>
+> **Commit 1**:
+> ```bash
+> git checkout {hash-1}
+> cargo run --release
+> # Expected: {behavior}
+> # GDB commands: {list}
+> ```
+>
+> **Commit 2**:
+> ```bash
+> git checkout {hash-2}
+> cargo run --release
+> # Expected: {behavior}
+> # GDB commands: {list}
+> ```
+>
+> **Commit 3**:
+> ```bash
+> git checkout {hash-3}
+> cargo run --release
+> # Expected: {behavior}
+> # GDB commands: {list}
+> ```
+>
+> **Validation checklist**:
+> - [ ] All commits build successfully
+> - [ ] Hardware behaves as expected for each commit
+> - [ ] GDB commands work as documented
+> - [ ] "Wow moment" is impressive
+> - [ ] Progression makes sense (discovery → solution)
+
+### Step 5.2: User Checkpoint
+
+**Ask for confirmation**:
+> **Validation Results**
+>
+> Did all commits work correctly? Is the progression clear?
+>
+> - Type **"yes"** if everything worked
+> - Type **"issue"** and describe what went wrong
+
+**Wait for user response**
+
+**If approved**: Proceed to PR
+**If issues**: Fix and re-validate
+
+---
+
+## Phase 6: Push Branch and Create PR
+
+**Goal**: Push lesson branch and create pull request for review.
+
+### Step 6.1: Final Checks
+
 ```bash
 # Format code
 cargo fmt
@@ -951,36 +730,66 @@ cargo clippy
 cargo build --release
 ```
 
-**Remove excessive debug logging** (keep info-level logs)
-
-### Step 6.3: Commit Changes
-
-**Commit with descriptive message**:
+### Step 6.2: Push Branch
 
 ```bash
-git add lessons/{XX-lesson-name}/ docs/prd/lesson-{XX}*.md
+git push -u origin lesson-{NN}-{name}
+```
 
-git commit -m "feat(lesson-{XX}): Add {feature name} lesson
+### Step 6.3: Create Pull Request
 
-Implements Lesson {XX} demonstrating {key concepts}.
+```bash
+gh pr create --title "Lesson {NN}: {Feature} + GDB" --body "$(cat <<'EOF'
+## Summary
 
-Key features:
-- {Feature 1}
-- {Feature 2}
-- {Feature 3}
+Implements Lesson {NN} demonstrating {peripheral} with {GDB techniques}.
 
-Hardware:
-- ESP32-C6 + {external components}
+**Learning objectives**:
+- {Objective 1}
+- {Objective 2}
+- {Objective 3}
+
+**GDB techniques taught**:
+1. {Technique 1}
+2. {Technique 2}
+3. {Technique 3}
+
+**Commit progression**:
+- Commit 1: {Purpose}
+- Commit 2: {Purpose}
+- Commit 3: {Purpose}
+
+**Hardware**:
+- ESP32-C6 + {components}
 - GPIO{X}: {function}
-- GPIO{Y}: {function}
 
-Testing:
-- Hardware validated
-- {Test summary}
+**Validation**:
+- ✅ All commits build
+- ✅ Hardware tested on ESP32-C6
+- ✅ GDB commands verified
+- ✅ Documentation complete
+
+## Test Plan
+
+```bash
+cd lessons/{NN}-{name}
+
+# Test commit progression
+git checkout {hash-1} && cargo run --release
+git checkout {hash-2} && cargo run --release
+git checkout {hash-3} && cargo run --release
+```
+
+**Expected behavior**: {Summary of what should happen}
+
+## References
+
+- [GDB_LESSON_PLANS.md](../../GDB_LESSON_PLANS.md) - Lesson specification
+- [Lesson {NN-1}](../lessons/{NN-1}-{prev-name}/) - Previous lesson
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
+EOF
+)"
 ```
 
 ### Step 6.4: Completion Summary
@@ -988,149 +797,129 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 > ✅ **Lesson development complete!**
 >
 > **Summary**:
-> - Lesson {XX}: {Feature Name}
-> - Hardware validated on ESP32-C6
-> - Documentation complete
-> - Committed to repository
+> - Lesson {NN}: {Feature} + GDB
+> - Branch: `lesson-{NN}-{name}`
+> - Commits: {N} progressive commits
+> - Hardware validated: ✅
+> - PR created: {PR URL}
 >
 > **Files Created**:
-> - `lessons/{XX-lesson-name}/src/main.rs`
-> - `lessons/{XX-lesson-name}/README.md`
-> - `docs/prd/lesson-{XX}-{name}-prd.md`
+> - `lessons/{NN}-{name}/src/bin/main.rs` (progressive commits)
+> - `lessons/{NN}-{name}/README.md` (commit walkthrough)
+> - `lessons/{NN}-{name}/CLAUDE.md` (pedagogy guide)
 >
 > **Validation**:
-> - ✅ Builds without warnings
-> - ✅ Serial output matches expected patterns
-> - ✅ Hardware behavior confirmed
+> - ✅ All commits build
+> - ✅ Hardware works through all commits
+> - ✅ GDB commands verified
+> - ✅ Documentation complete
 >
-> Lesson is ready!
+> Lesson is ready for review!
 
 ---
 
 ## Key Principles
 
-### 1. Collaborative Development
-- Communicate progress clearly
-- Ask for help when stuck (don't iterate forever)
-- Explain hypotheses and fixes
-- User can provide input at any time
+### 1. Discovery-Based Learning
 
-### 2. Serial Output as "Oracle"
-- PRD defines expected serial output patterns
-- Compare actual vs expected output
-- Serial patterns verify correct behavior
-- Missing patterns indicate issues to fix
+**Students investigate, not just read**:
+- Give them broken or minimal code
+- Guide them to use GDB to discover issues
+- Let them find solutions through exploration
+- Build understanding through hands-on debugging
 
-### 3. Strategic Logging
-- **info!()** for user-visible milestones
-- Keep logging simple and readable
-- Include emojis for visual scanning
-- Mark potential breakpoint locations
+**Not**:
+- Presenting complete solutions
+- Formal lectures
+- Passive reading
 
-### 4. Testing is Mandatory
-- All lessons must be tested
-- At minimum: manual hardware validation
-- Unit tests for complex logic
-- Document testing approach
+### 2. Progressive Commits
 
-### 5. Hardware Validation is Mandatory
-- Cannot skip hardware validation
-- User must confirm expected behavior
-- Checkpoint before proceeding to cleanup
+**Each commit reveals one concept**:
+- Commit 1: Problem or minimal state
+- Commit 2: First GDB technique (investigation)
+- Commit 3: Second GDB technique ("wow moment")
+- Commit 4+: Additional techniques as needed
 
-### 6. Code Structure for Video Production
+**Students learn by**:
+- Checking out each commit
+- Flashing firmware
+- Using GDB commands
+- Discovering insights
+- Moving to next commit
 
-**For simple lessons (01-05):**
-- **Target: ~100-150 lines user-typed** (entire lesson type-able in 5-10 minutes)
-- Mark sections with comments showing what user types:
-  ```rust
-  // [USER TYPES] - Main application logic
-  // ============================================================================
-  fn main() -> ! { /* ... */ }
-  // [END USER TYPES]
-  ```
+### 3. GDB-First Mindset
 
-**For complex lessons (06+):**
-- **Split code into sections** with clear markers:
-  ```rust
-  // [SECTION 1/3: USER TYPES - Main loop and streaming]
-  // DELETE THIS COMMENT and type from here...
-  fn main() -> ! { /* ... */ }
-  // [END SECTION 1/3]
+**GDB is not optional**:
+- Every lesson teaches 2-3 GDB techniques
+- GDB commands are in commit messages
+- README includes GDB reference section
+- Students use GDB throughout lesson
 
-  // [SECTION 2/3: COPY-PASTE - UART driver]
-  // Keep this, copy from starter code
-  // ... boilerplate code ...
-  // [END SECTION 2/3]
-  ```
+**Reference materials**:
+- `GDB_LESSON_PLANS.md` - What to teach per lesson
+- `GDB_REFERENCE.md` - All GDB capabilities
+- `GDB_EXECUTIVE_SUMMARY.md` - Quick reference
 
-- **~50-100 lines USER TYPES** - Core logic (type live)
-- **~100-300 lines COPY-PASTE** - Drivers, utilities, boilerplate
-- **Total video: 15-20 minutes** (intro + copy + live coding + test)
+### 4. Proactive Hardware Testing
 
-**Guidelines:**
-- Mark sections clearly for easy find-and-replace during video editing
-- Keep USER TYPES sections interesting and understandable
-- Put repetitive/boilerplate code in COPY-PASTE sections
-- Provide STARTER_CODE.md with copy-paste blocks clearly marked
-- No edge case exhaustion
-- Simple, readable code
-- Clear section comments
+**Test BEFORE teaching**:
+```bash
+/test-hardware {peripheral} {pins}
+```
 
-### 7. Test-Driven Development (TDD) for Future Lessons
-- **Write tests BEFORE implementation** when appropriate (for pure functions)
-- Think about testability first - separate hardware from logic
-- Host tests for algorithms, data transformations, state machines
-- Device tests for I2C/SPI/GPIO hardware validation
-- **Keep tests simple** - focus on main use cases, not edge case exhaustion
-- Test-first approach helps design better APIs and cleaner code
+**Never teach with untested hardware**:
+- Verify pins work
+- Confirm expected behavior
+- Document working configuration
+- Save time debugging during lesson
 
-**Why test "obvious" logic?**
-1. **Regression prevention** - Tests catch bugs when you refactor 6 months later
-2. **Forces better design** - Thinking "how do I test this?" naturally leads to isolation, pure functions, and loose coupling
-3. **Living documentation** - Tests show how code should work
-4. **Confidence** - Change code without fear
+### 5. Collaborative Pair Programming
 
-Even simple tests like "state transitions from Off to On" are valuable because they catch regressions when you add features later.
+**Tone**: Buddy exploring together, not professor teaching
 
-### 8. Copy Previous Lessons When Appropriate
-- Fastest way to start similar lessons
-- Ensures consistency
-- Update names, numbers, and functionality
-- Maintain project structure
+**Good interactions**:
+- "Let's inspect that register together"
+- "What do you see in the GPIO_OUT register?"
+- "Try calling led_toggle() from GDB - it's pretty cool!"
+
+**Bad interactions**:
+- "In this lesson you will learn..."
+- "The correct answer is..."
+- "Here's the solution, type this"
+
+### 6. Keep It Simple
+
+**Lean lessons**:
+- 100-150 lines per commit (type-able in YouTube video)
+- 3-5 commits total
+- Focus on core concepts
+- Skip edge cases
+- Clear, readable code
+
+**Not**:
+- Over-engineering
+- Massive documentation
+- Exhaustive error handling
+- Production-grade code
 
 ---
 
-## Output Artifacts
+## Lesson Curriculum Reference
 
-At completion, you'll have:
+**7-lesson GDB curriculum** (from `GDB_LESSON_PLANS.md`):
 
-1. **PRD** (`docs/prd/lesson-{XX}-{name}-prd.md`)
-   - Expected behavior patterns
-   - Hardware requirements
-   - Success criteria
+| Lesson | Peripheral | GDB Techniques | Complexity | Duration |
+|--------|------------|----------------|------------|----------|
+| 01 | GPIO (LED) | Memory ops, GDB variables, function calls | ⭐⭐☆☆☆ | 60-90 min |
+| 02 | UART + DMA | Watchpoints, conditional breakpoints, call stack | ⭐⭐⭐☆☆ | 90-120 min |
+| 03 | I2C (sensor) | Reverse continue, register diff, tracepoints | ⭐⭐⭐☆☆ | 90-120 min |
+| 04 | SPI (OLED) | Python scripting, macro debugger, memory compare | ⭐⭐⭐⭐☆ | 120-150 min |
+| 05 | PWM (servo) | Disassembly, instruction stepping, performance analysis | ⭐⭐⭐☆☆ | 90-120 min |
+| 06 | Multi-peripheral | Core dumps, remote memory, checkpoint restore | ⭐⭐⭐⭐☆ | 120-180 min |
+| 07 | Production debug | Automated test harness, trace analysis, historical debugging | ⭐⭐⭐⭐⭐ | 150-240 min |
 
-2. **Lesson Code** (`lessons/{XX-lesson-name}/`)
-   - `src/bin/main.rs` - Main firmware
-   - `src/lib.rs` - Library code (empty)
-   - `Cargo.toml` - Project manifest with `[[bin]]` section
-   - `.cargo/config.toml` - espflash runner configuration
-   - `rust-toolchain.toml` - Toolchain config with RISC-V target
-   - `build.rs` - Build script with helpful linker errors
-
-3. **Documentation**
-   - `lessons/{XX-lesson-name}/README.md` - Lesson docs
-   - Code comments for learning
-
-4. **Validation**
-   - Hardware tested and confirmed
-   - Serial output verified
-   - All expected patterns present
-
-5. **Commit**
-   - Conventional commit format
-   - Detailed description
-   - Ready for repository
+**Always consult** `GDB_LESSON_PLANS.md` for detailed commit structures and demo scripts.
 
 ---
 
@@ -1138,32 +927,32 @@ At completion, you'll have:
 
 | Use Case | Use `/gen-lesson` | Notes |
 |----------|------------------|-------|
-| New lesson (I2C, SPI, UART) | ✅ Yes | Full workflow with PRD |
-| New peripheral driver | ✅ Yes | Hardware validation critical |
-| Task scheduler implementation | ✅ Yes | Test and validate |
-| State machine | ✅ Yes | Full workflow |
-| Bug fix in existing lesson | ⚠️ Maybe | Skip PRD, go to Phase 3 |
+| New GDB lesson (01-07) | ✅ Yes | Full workflow with progressive commits |
+| New peripheral (I2C, SPI, PWM) | ✅ Yes | Integrate GDB techniques |
+| Bug fix in existing lesson | ⚠️ Maybe | Fix and test, update README |
 | Documentation update | ❌ No | Just edit directly |
+| Hardware troubleshooting | ❌ No | Use `/test-hardware` |
 
 ---
 
 ## Tips for Best Results
 
 **Good lesson requests**:
-- ✅ "Create Lesson 03: I2C sensor driver"
-- ✅ "Add PWM motor control lesson"
-- ✅ "Implement UART serial communication"
+- ✅ "Create Lesson 03: I2C + GDB"
+- ✅ "Implement Lesson 02: UART + DMA with watchpoints"
+- ✅ "Add Lesson 05: PWM with disassembly"
 
 **Poor lesson requests**:
-- ❌ "Make I2C work" (what device? what goal?)
+- ❌ "Make I2C work" (which lesson? what GDB techniques?)
 - ❌ "Fix the code" (which code? what issue?)
 
 **Prepare for success**:
+- Read `GDB_LESSON_PLANS.md` for the target lesson
 - Have ESP32-C6 connected and ready
 - Have external components available
 - Know which GPIO pins to use
-- Be ready to validate on hardware
+- Be ready to test all commits
 
 ---
 
-**This is your complete ESP32-C6 lesson development workflow. Use it for systematic firmware development with hardware validation and comprehensive testing for engineers learning esp-hal 1.0.0 Rust development.**
+**This is your GDB-integrated ESP32-C6 lesson development workflow. Use it for systematic firmware development with progressive commits and discovery-based learning for engineers mastering esp-hal 1.0.0 Rust + GDB debugging.**
