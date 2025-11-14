@@ -30,7 +30,14 @@ description: Comprehensive repository review for esp32-c6-agentic-firmware - val
 
 ```bash
 # Review top-level structure
-tree -L 2 -I 'target|.git'
+# Try tree first, fall back to find if not available
+if command -v tree &>/dev/null; then
+  tree -L 2 -I 'target|.git'
+else
+  # Fallback: use find to show structure
+  echo "=== Repository Structure ==="
+  find . -maxdepth 2 -type d | grep -v -E '(target|\.git|node_modules)' | sort
+fi
 
 # Check for consistency across lessons
 find lessons -name "Cargo.toml" | wc -l
@@ -77,6 +84,18 @@ find lessons -name "TEST.md" | wc -l
 
 **Read** `/README.md` (if exists, or note if missing):
 
+**First, verify lesson list accuracy:**
+
+```bash
+# Get actual lesson names
+ls -1 lessons/
+
+# Compare to what README claims
+# Read README and check lesson section matches reality
+```
+
+**If discrepancies found, note them immediately before proceeding.**
+
 **Questions:**
 - Does it explain the repo purpose clearly?
 - Does it target the right audience (engineers learning esp-hal)?
@@ -86,6 +105,7 @@ find lessons -name "TEST.md" | wc -l
 - Are there clear "Getting Started" instructions?
 
 **Actions:**
+- [ ] Validate lesson list matches actual lesson directories
 - [ ] Check if README exists and is comprehensive
 - [ ] Verify hardware requirements listed
 - [ ] Check if software dependencies documented
@@ -122,7 +142,130 @@ find .claude -type f -name "*.md" -o -name "*.py" -o -name "*.sh"
 
 ---
 
+## Best Practices for Bulk Operations
+
+**CRITICAL:** Due to shell execution limitations in the LLM environment, follow these patterns:
+
+### ✅ Use Temp Scripts for Bulk Testing
+
+**For testing multiple lessons, ALWAYS use temp scripts:**
+
+**Option 1: Use provided template script**
+
+```bash
+# Use the pre-made template
+.claude/templates/test-all-lessons.sh
+```
+
+**Option 2: Create custom temp script**
+
+```bash
+# ✅ RECOMMENDED: Temp script approach
+cat > /tmp/test-all-lessons.sh << 'EOF'
+#!/bin/bash
+cd /Users/shanemattner/Desktop/esp32-c6-agentic-firmware
+
+for lesson_dir in lessons/*/; do
+  name=$(basename "$lesson_dir")
+  echo "=== Testing $name ==="
+  cargo build --release --manifest-path "$lesson_dir/Cargo.toml" 2>&1 | tail -5
+  echo ""
+done
+EOF
+chmod +x /tmp/test-all-lessons.sh
+/tmp/test-all-lessons.sh
+```
+
+### ❌ Avoid Inline Loops with Command Substitution
+
+**These patterns WILL FAIL in eval context:**
+
+```bash
+# ❌ BAD: Command substitution in loops
+for lesson in lessons/*/; do echo "$(basename $lesson)"; done
+
+# ❌ BAD: Complex glob patterns with variables
+for num in 01 02 03; do cargo build --manifest-path "lessons/$num"-*/Cargo.toml; done
+```
+
+### ✅ Use --manifest-path Instead of cd
+
+**Follow CLAUDE.md convention:**
+
+```bash
+# ✅ GOOD: Use --manifest-path to avoid cd
+cargo build --release --manifest-path lessons/01-button-neopixel/Cargo.toml
+
+# ❌ AVOID: cd into directory
+cd lessons/01-button-neopixel && cargo build --release && cd ../..
+```
+
+### ✅ Filter Output for Efficiency
+
+**Reduce token usage by filtering verbose output:**
+
+```bash
+# For successful builds, show only summary
+cargo build --release --manifest-path lessons/01-button-neopixel/Cargo.toml 2>&1 | tail -5
+
+# For failed builds, show errors
+cargo build --release --manifest-path lessons/01-button-neopixel/Cargo.toml 2>&1 | grep -E '(error|warning)' | head -20
+```
+
+---
+
 ## Phase 2: Lesson-by-Lesson Review
+
+### Step 2.0: Check Dependency Freshness
+
+**CRITICAL: Before building lessons, check for stale Cargo.lock files.**
+
+**Why this matters:**
+- esp-hal ecosystem evolves rapidly
+- Stale `Cargo.lock` can cause build failures with newer Rust nightly
+- Fresh checkout won't have `Cargo.lock` (gitignored), but repo maintainer might
+- Dependency drift can create false build failures
+
+**Check Cargo.lock timestamps:**
+
+**Option 1: Use provided template script**
+
+```bash
+# Use the pre-made checker
+.claude/templates/check-cargo-locks.sh
+```
+
+**Option 2: Manual check**
+
+```bash
+# Check when lessons were last updated
+ls -lh lessons/*/Cargo.lock | awk '{print $6, $7, $9}'
+
+# Identify stale locks (>7 days old)
+find lessons -name "Cargo.lock" -mtime +7 -exec ls -lh {} \;
+```
+
+**If stale Cargo.lock files found (or if any lesson fails to build):**
+
+```bash
+# Update dependencies for all lessons (use temp script)
+cat > /tmp/update-deps.sh << 'EOF'
+#!/bin/bash
+cd /Users/shanemattner/Desktop/esp32-c6-agentic-firmware
+
+for lesson_dir in lessons/*/; do
+  name=$(basename "$lesson_dir")
+  echo "=== Updating $name ==="
+  (cd "$lesson_dir" && cargo update)
+done
+EOF
+chmod +x /tmp/update-deps.sh
+/tmp/update-deps.sh
+```
+
+**Proceed to build validation only after ensuring dependencies are fresh.**
+
+---
 
 ### Step 2.1: Validate Each Lesson
 
@@ -130,14 +273,79 @@ find .claude -type f -name "*.md" -o -name "*.py" -o -name "*.sh"
 
 #### Build & Flash Validation
 
-```bash
-cd lessons/XX-name/
-cargo clean
-cargo build --release
-# If build succeeds, note success. If fails, document error.
+**Use temp script for systematic testing:**
 
-# Check binary size
-ls -lh target/riscv32imac-unknown-none-elf/release/
+**Option 1: Use provided template script**
+
+```bash
+# Use the pre-made validation script
+.claude/templates/validate-lesson.sh lessons/01-button-neopixel/
+.claude/templates/validate-lesson.sh lessons/02-task-scheduler/
+# ... continue for each lesson
+```
+
+**Option 2: Create custom validation script**
+
+```bash
+# Create build validation script
+cat > /tmp/validate-lesson.sh << 'EOF'
+#!/bin/bash
+LESSON_DIR="$1"
+
+if [ -z "$LESSON_DIR" ]; then
+  echo "Usage: $0 lessons/XX-name/"
+  exit 1
+fi
+
+LESSON_NAME=$(basename "$LESSON_DIR")
+echo "=== Validating $LESSON_NAME ==="
+
+# Build the lesson
+echo "Building..."
+cargo build --release --manifest-path "$LESSON_DIR/Cargo.toml" 2>&1 | tail -10
+
+if [ ${PIPESTATUS[0]} -eq 0 ]; then
+  echo "✅ Build succeeded"
+
+  # Find the actual binary (package name may vary)
+  BINARY=$(find "$LESSON_DIR/target/riscv32imac-unknown-none-elf/release/" -type f -perm +111 2>/dev/null | grep -E '(lesson-|main$)' | head -1)
+
+  if [ -n "$BINARY" ]; then
+    echo "Binary: $(ls -lh "$BINARY" | awk '{print $9, $5}')"
+    command -v size &>/dev/null && size "$BINARY" || true
+  else
+    echo "⚠️ Binary not found in target directory"
+  fi
+else
+  echo "❌ Build failed"
+  echo "Trying with cargo update first..."
+  (cd "$LESSON_DIR" && cargo update)
+  cargo build --release --manifest-path "$LESSON_DIR/Cargo.toml" 2>&1 | grep -E '(error|warning)' | head -20
+fi
+EOF
+
+chmod +x /tmp/validate-lesson.sh
+
+# Test each lesson
+/tmp/validate-lesson.sh lessons/01-button-neopixel/
+/tmp/validate-lesson.sh lessons/02-task-scheduler/
+# ... continue for each lesson
+```
+
+**For individual lesson testing:**
+
+```bash
+# Simple build test
+cargo build --release --manifest-path lessons/01-button-neopixel/Cargo.toml 2>&1 | tail -5
+```
+
+**If build fails with dependency errors:**
+
+```bash
+# Try updating dependencies first
+cd lessons/XX-name/
+cargo update
+cargo build --release 2>&1 | tail -10
 ```
 
 **Questions:**

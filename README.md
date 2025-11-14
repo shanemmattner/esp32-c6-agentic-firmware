@@ -16,16 +16,18 @@ Modern embedded Rust development for ESP32-C6 using **esp-hal 1.0.0** (pure Rust
 
 ## 📚 Lessons
 
-Progressive tutorials from basic GPIO to advanced features:
+Progressive tutorials from basic GPIO to advanced debugging:
 
-- **[01-blinky](./lessons/01-blinky/)** ✅ - GPIO output & input with logging
-- **02-button-input** - GPIO input and interrupts
-- **03-state-machine** - Async state machines with Embassy
-- **04-i2c-sensor** - I2C driver implementation
-- **05-spi-display** - SPI with display driver
-- **06-uart-shell** - UART communication and CLI
-- **[07-gdb-debugging](./lessons/07-gdb-debugging/)** ✅ - GDB debugging with OpenOCD
-- **[08-uart-gdb-tandem](./lessons/08-uart-gdb-tandem/)** 🚧 - UART variable streaming + GDB tandem debugging
+- **[01-button-neopixel](./lessons/01-button-neopixel/)** ✅ - GPIO input/output with WS2812 NeoPixel control via RMT peripheral
+- **[02-task-scheduler](./lessons/02-task-scheduler/)** - Cooperative task scheduling and periodic execution
+- **[03-mpu9250](./lessons/03-mpu9250/)** - I2C communication with MPU9250 IMU sensor
+- **[04-statig-color-navigator](./lessons/04-statig-color-navigator/)** - State machine-based UI navigation with button input
+- **[05-unit-and-integration-testing](./lessons/05-unit-and-integration-testing/)** - Testing strategies for embedded firmware
+- **[06-uart-terminal](./lessons/06-uart-terminal/)** - UART communication and interactive terminal interface
+- **[07-gdb-debugging](./lessons/07-gdb-debugging/)** ✅ - Hardware debugging with GDB and OpenOCD
+- **[08-uart-gdb-tandem](./lessons/08-uart-gdb-tandem/)** ✅ - Real-time variable streaming + GDB tandem debugging
+
+**Status:** Lessons 01, 07, and 08 are fully tested and documented with hardware validation.
 
 **Future Explorations** (advanced/incomplete work in `future/` directory):
 - defmt + RTT structured logging
@@ -50,7 +52,7 @@ cargo install espflash esp-generate --locked
 ### Build & Flash
 
 ```bash
-cd lessons/01-blinky
+cd lessons/01-button-neopixel
 cargo build --release
 cargo run --release  # Flash to ESP32-C6
 ```
@@ -69,7 +71,7 @@ This project demonstrates multiple debugging approaches:
 
 - **[docs/LESSON_PLAN.md](./docs/LESSON_PLAN.md)** - Full curriculum overview
 - **[future/README.md](./future/README.md)** - Advanced exploration and RTT tools
-- **[docs/REMOTE_DEVELOPMENT.md](./docs/REMOTE_DEVELOPMENT.md)** - Remote build setup
+- **[QUICKSTART.md](./QUICKSTART.md)** - Quick start guide
 - **[Official esp-hal Docs](https://docs.esp-rs.org/esp-hal/)** - HAL reference
 - **[esp-hal Examples](https://github.com/esp-rs/esp-hal/tree/main/examples)** - Code examples
 
@@ -103,21 +105,27 @@ No ESP-IDF. No C code. Pure Rust! 🦀
 
 ```
 lessons/
-├── 01-blinky/          # Lesson 1: GPIO output & input
+├── 01-button-neopixel/       # Lesson 1: GPIO + NeoPixel
 │   ├── src/bin/main.rs
 │   ├── Cargo.toml
 │   ├── .cargo/config.toml
 │   └── README.md
-├── 02-button/          # Lesson 2: GPIO input & interrupts
+├── 02-task-scheduler/        # Lesson 2: Task scheduling
+├── 03-mpu9250/               # Lesson 3: I2C sensor
 └── ...
 
+.claude/
+├── commands/                 # Custom slash commands
+├── templates/                # Code templates
+└── TESTING-GUIDE.md
+
 scripts/
-├── monitor.py          # Serial monitor tool
-└── remote-build-flash.sh
+├── find-esp32-ports.sh       # Auto port detection
+└── ...
 
 docs/
-├── LESSON_PLAN.md      # Full curriculum
-├── REMOTE_DEVELOPMENT.md
+├── LESSON_PLAN.md            # Full curriculum
+├── DEBUGGING_INFRASTRUCTURE.md
 └── ...
 ```
 

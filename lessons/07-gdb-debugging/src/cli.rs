@@ -15,7 +15,7 @@ pub struct Command<'a> {
 }
 
 /// Parse a command line into command name and arguments
-pub fn parse_command(line: &str) -> Option<Command> {
+pub fn parse_command(line: &str) -> Option<Command<'_>> {
     let line = line.trim();
     if line.is_empty() {
         return None;

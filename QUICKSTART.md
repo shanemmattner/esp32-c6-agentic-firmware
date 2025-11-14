@@ -47,7 +47,7 @@ The binary will be compiled and automatically flashed to your connected ESP32-C6
 Or clone and use the working example:
 
 ```bash
-cd esp32-c6-agentic-firmware/lessons/01-blinky
+cd esp32-c6-agentic-firmware/lessons/01-button-neopixel
 cargo build --release
 cargo run --release
 ```
@@ -55,11 +55,11 @@ cargo run --release
 ## Monitor Serial Output
 
 ```bash
-# View real-time logs
-espflash monitor /dev/cu.usbserial-10
+# View real-time logs via USB CDC (built into espflash)
+espflash monitor
 
-# Or use Python monitor script
-python3 scripts/monitor.py --port /dev/cu.usbserial-10 --baud 115200
+# Or for UART debugging (lessons 06-08), use the Python helper script
+python3 .claude/templates/read_uart.py /dev/cu.usbserial-FT58PFX4 5
 ```
 
 ## Troubleshooting
@@ -73,9 +73,11 @@ python3 scripts/monitor.py --port /dev/cu.usbserial-10 --baud 115200
 
 ## Next Steps
 
-- **Lesson 01**: [GPIO Output & Input](./lessons/01-blinky/) ✅
-- **Lesson 02**: GPIO input and interrupts
-- **Lesson 03**: Async/await with Embassy
+- **Lesson 01**: [Button + NeoPixel](./lessons/01-button-neopixel/) ✅
+- **Lesson 02**: [Task Scheduler](./lessons/02-task-scheduler/)
+- **Lesson 03**: [I2C MPU9250 Sensor](./lessons/03-mpu9250/)
+- **Lesson 07**: [GDB Debugging](./lessons/07-gdb-debugging/) ✅
+- **Lesson 08**: [UART + GDB Tandem](./lessons/08-uart-gdb-tandem/) ✅
 - Full roadmap: [docs/LESSON_PLAN.md](./docs/LESSON_PLAN.md)
 
 ---

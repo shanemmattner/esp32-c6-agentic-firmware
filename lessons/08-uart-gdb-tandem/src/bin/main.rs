@@ -169,10 +169,10 @@ static mut STATUS_FLAGS: u8 = 0;
 // ================================================================================================
 
 static mut STREAM_SLOTS: [StreamSlot; 4] = [
-    StreamSlot::new(unsafe { &SENSOR_X }, VarType::I32, "sensor_x"),
-    StreamSlot::new(unsafe { &SENSOR_Y }, VarType::I32, "sensor_y"),
-    StreamSlot::new(unsafe { &TEMPERATURE }, VarType::I32, "temperature"),
-    StreamSlot::new(unsafe { &COUNTER }, VarType::U32, "counter"),
+    StreamSlot::new(unsafe { &raw const SENSOR_X }, VarType::I32, "sensor_x"),
+    StreamSlot::new(unsafe { &raw const SENSOR_Y }, VarType::I32, "sensor_y"),
+    StreamSlot::new(unsafe { &raw const TEMPERATURE }, VarType::I32, "temperature"),
+    StreamSlot::new(unsafe { &raw const COUNTER }, VarType::U32, "counter"),
 ];
 
 // ================================================================================================
@@ -224,7 +224,8 @@ fn main() -> ! {
         write!(&mut buffer, "STREAM|ts={}|", loop_count).ok();
 
         unsafe {
-            for slot in &STREAM_SLOTS {
+            let slots = &*core::ptr::addr_of!(STREAM_SLOTS);
+            for slot in slots {
                 match slot.read_safe() {
                     Ok(value) => {
                         match value {
