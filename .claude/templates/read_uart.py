@@ -10,16 +10,17 @@ import time
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: read_uart.py <port> [duration_seconds]")
-        print("Example: read_uart.py /dev/cu.usbserial-FT58PFX4 5")
+        print("Usage: read_uart.py <port> [duration_seconds] [baud_rate]")
+        print("Example: read_uart.py /dev/cu.usbserial-FT58PFX4 5 921600")
         sys.exit(1)
 
     port = sys.argv[1]
     duration = int(sys.argv[2]) if len(sys.argv) > 2 else 3
+    baud = int(sys.argv[3]) if len(sys.argv) > 3 else 115200
 
     try:
-        ser = serial.Serial(port, 115200, timeout=0.1)
-        print(f"Reading from {port} for {duration} seconds...")
+        ser = serial.Serial(port, baud, timeout=0.1)
+        print(f"Reading from {port} at {baud} baud for {duration} seconds...")
         print("-" * 60)
 
         start_time = time.time()

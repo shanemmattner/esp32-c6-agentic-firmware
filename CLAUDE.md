@@ -797,7 +797,9 @@ This project includes comprehensive hardware testing tools to prevent conversati
   - Time-bounded execution (default 3-5 seconds)
   - No hanging, clean termination
   - Cross-platform (macOS, Linux, Windows)
-  - Usage: `python3 read_uart.py /dev/cu.usbserial* 5`
+  - Supports custom baud rates (default 115200)
+  - Usage: `python3 read_uart.py <port> <duration> [baud_rate]`
+  - Example: `python3 read_uart.py /dev/cu.usbserial* 5 921600`
 
 ### Scripts (scripts/)
 
@@ -830,6 +832,145 @@ This project includes comprehensive hardware testing tools to prevent conversati
 
 ---
 
+## Hardware Testing Best Practices
+
+### Preventing Chat Freezes During Testing
+
+**Problem:** Long-running tests or waiting for user input can freeze the conversation.
+
+**Solutions:**
+
+#### 1. Use Time-Bounded Commands Only
+
+```bash
+# ✅ GOOD: Guaranteed termination
+python3 read_uart.py /dev/cu.usbserial* 5 921600  # 5 second timeout
+
+# ❌ BAD: Can hang indefinitely
+cat /dev/cu.usbserial*  # No timeout
+espflash monitor  # Interactive, no timeout
+```
+
+#### 2. Never Wait for User Input in Bash
+
+```bash
+# ❌ BAD: Freezes conversation waiting for ENTER
+echo "Press ENTER when ready" && read && espflash flash ...
+
+# ✅ GOOD: Just instruct user to prepare, then proceed
+# "Please hold BOOT button on board"
+# Then run command directly without waiting
+espflash flash --chip esp32c6 --port /dev/cu.usbmodem* target/.../main
+```
+
+#### 3. Baud Rate Mismatches
+
+**Always specify baud rate explicitly:**
+
+```bash
+# Firmware runs at 921600 baud
+# Python script must match
+python3 read_uart.py /dev/cu.usbserial* 5 921600  # Correct!
+
+# Not: python3 read_uart.py /dev/cu.usbserial* 5  # Uses 115200 default
+```
+
+**How to find firmware baud rate:**
+```bash
+grep "BAUD_RATE" src/bin/main.rs
+# Output: const BAUD_RATE: u32 = 921_600;
+```
+
+#### 4. Hardware Test Workflow
+
+**Efficient testing sequence:**
+
+1. **Detect ports once:**
+   ```bash
+   USB_PORT=$(ls /dev/cu.usbmodem* | head -1)
+   UART_PORT=$(ls /dev/cu.usbserial* | head -1)
+   echo "USB: $USB_PORT, UART: $UART_PORT"
+   ```
+
+2. **Flash firmware:**
+   ```bash
+   espflash flash --chip esp32c6 --port $USB_PORT target/.../main
+   ```
+
+3. **Monitor output (time-bounded):**
+   ```bash
+   # USB CDC (for debug output)
+   python3 read_uart.py $USB_PORT 5
+
+   # External UART (for data streaming)
+   python3 read_uart.py $UART_PORT 5 921600
+   ```
+
+4. **Document results immediately:**
+   - What worked?
+   - What didn't work?
+   - Any errors or unexpected behavior?
+
+#### 5. Common Hardware Test Issues
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Garbled UART data | Baud rate mismatch | Check firmware BAUD_RATE, specify in script |
+| "Error connecting" | Port in use | `pkill -f espflash` then retry |
+| No output | Wrong port | Use `ls /dev/cu.*` to verify |
+| Data corruption | TX/RX swapped | Check: ESP TX → FTDI RX |
+| Freezing chat | Blocking command | Use time-bounded Python scripts only |
+
+#### 6. Automation Best Practices
+
+**Create test scripts that:**
+- Have explicit timeouts
+- Auto-detect ports
+- Report results clearly
+- Clean up resources
+- Never wait for user input
+
+**Example test script structure:**
+```bash
+#!/bin/bash
+set -e  # Exit on error
+
+# Auto-detect
+USB=$(ls /dev/cu.usbmodem* | head -1)
+UART=$(ls /dev/cu.usbserial* | head -1)
+
+# Flash
+echo "Flashing..."
+espflash flash --chip esp32c6 --port $USB target/.../main
+
+# Test (time-bounded)
+echo "Testing for 5 seconds..."
+python3 read_uart.py $UART 5 921600 > test_output.txt
+
+# Analyze
+if grep -q "stream: iter=" test_output.txt; then
+    echo "✅ Test PASSED"
+else
+    echo "❌ Test FAILED"
+fi
+```
+
+#### 7. Lesson Testing Checklist
+
+Before declaring a lesson "hardware validated":
+
+- [ ] Firmware compiles without warnings
+- [ ] Flashes successfully to board
+- [ ] USB CDC output shows expected behavior
+- [ ] External UART (if used) shows correct data
+- [ ] Baud rates match between firmware and monitoring tools
+- [ ] Data format is correct (no corruption/garbling)
+- [ ] Test runs complete within expected time
+- [ ] Results documented in test report
+
+---
+
 **Last Updated:** 2025-11-14
-**Current Work:** Lesson 08 Complete (UART + GDB Tandem Debugging)
+**Current Work:** Lesson 02 Hardware Testing (UART + DMA with UHCI)
 **Infrastructure:** Hardware testing toolkit with templates, scripts, slash commands
+**Recent Issues Fixed:** Baud rate configuration in read_uart.py, chat freeze prevention
