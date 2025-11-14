@@ -211,42 +211,42 @@ Use inline bash for:
 
 ---
 
-## Embedded Debugging Philosophy: Virtual Debug Ears and Eyes
+## Embedded Debugging Philosophy: Virtual Debug Instrumentation
 
-**The core insight:** Instead of being blind while firmware runs, instrument the entire system with RTT telemetry to get **real-time visibility into register values, state changes, and hardware behavior without stopping execution**.
+**The core insight:** Instead of being blind while firmware runs, instrument the entire system with **continuous telemetry** to get **real-time visibility into register values, state changes, and hardware behavior without stopping execution**.
 
 ### Traditional vs Data-Driven Debugging
 
 **Traditional embedded debugging:**
 - Breakpoints freeze execution (destroy timing)
-- UART logging blocks the firmware (14 KB/s max)
+- Minimal logging to "avoid overhead"
 - You guess what's happening based on symptoms
 - Hypothesis test each subsystem (slow, repetitive)
 
-**Data-driven debugging with RTT:**
-- **Eyes:** See register values, ADC outputs, GPIO states, memory contents
-- **Ears:** Listen to I2C transactions, state transitions, error flags, event counters
+**Data-driven debugging with UART + GDB:**
+- **Eyes (UART streaming):** See sensor values, state machines, event counters in real-time
+- **Ears (GDB inspection):** Inspect register values, memory contents, peripheral state without stopping
 - Everything runs live (firmware never stops, timing stays accurate)
 - Patterns jump out immediately (no guessing, just observe)
 
-### RTT as Virtual Instrumentation
+### Virtual Instrumentation Mindset
 
-Think of RTT logging as placing sensors throughout your firmware:
+Think of debugging infrastructure as placing sensors throughout your firmware:
 
 ```
-Physical Hardware              RTT Virtual Instrumentation
+Physical Hardware              Virtual Instrumentation
 ────────────────────          ──────────────────────────
 
-I2C Bus           ────────→   "i2c: wr=5/5 rd=5/5 errs=0"
-Config Register   ────────→   "ads_cfg: mux=0 pga=1 mode=0 dr=7"
-ADC Output        ────────→   "ads_adc: raw=0x0ABC volts=1.234"
-State FSM         ────────→   "ads_fsm: state=Reading time_ms=45"
-Error Flags       ────────→   "i2c: timeouts=0 acks=0"
+I2C Bus           ────────→   UART: "i2c: wr=5/5 rd=5/5 errs=0"
+Config Register   ────────→   GDB: (gdb) print ads_cfg_reg
+ADC Output        ────────→   UART: "adc: raw=0x0ABC volts=1.234"
+State FSM         ────────→   UART: "fsm: state=Reading time_ms=45"
+Error Flags       ────────→   UART: "errors: i2c_timeout=0 crc=0"
 ```
 
-Instead of stopping to inspect a value (breakpoint), you let the firmware run and **stream all hardware state to your terminal in real-time**.
+Instead of stopping to inspect a value (breakpoint), you let the firmware run and **stream high-level state to UART** while using **GDB for on-demand deep inspection** of registers and memory.
 
-## Embedded Debugging Philosophy: Data-Driven Analysis
+### Data-Driven Analysis Strategy
 
 **The core insight:** In complex embedded systems, you don't debug by hypothesis testing - you debug by **collecting all data and finding patterns**.
 
@@ -258,38 +258,52 @@ Problem: You're guessing at what's wrong. What if it's actually an I2C timeout t
          Or a race condition between ISR and main loop? Or corrupted state from previous operation?
 ```
 
-### Data-Driven Debugging with RTT
+### Data-Driven Debugging with UART + GDB
 
 ```
-New approach: "Button doesn't work → log ALL variables (GPIO, I2C, ISR state, FSM, timers, etc.)
-              at 100 Hz → analyze patterns → see: 'button press → i2c_errors spike → sensor stops
-              responding → LED never updates'"
+New approach: "Button doesn't work → stream ALL variables (GPIO, I2C, ISR state, FSM, timers)
+              via UART at 10 Hz → analyze patterns → see: 'button press → i2c_errors spike →
+              sensor stops responding → LED never updates'"
 Result: Root cause visible instantly. Fix is obvious: add I2C timeout recovery.
+```
+
+**GDB for deep inspection:**
+```
+(gdb) break i2c_error_handler
+(gdb) continue
+(gdb) print i2c_peripheral->status_reg
+(gdb) print *button_state
+(gdb) x/16x 0x60004000  # Inspect GPIO registers directly
 ```
 
 ### Why This Works with Claude Code
 
-1. **Humans are pattern-matchers** - Claude excels at analyzing massive datasets
+1. **Pattern matching at scale** - Claude excels at analyzing streaming telemetry
 2. **Correlations reveal causality** - When variables spike together, something connects them
 3. **No hypothesis needed** - Just collect data and analyze. The relationships appear naturally
-4. **RTT is non-blocking** - Unlike UART, timing stays accurate. Bugs don't hide
-5. **Structured defmt logs** - Machine-parseable format enables automated pattern detection
+4. **UART is non-blocking** - With proper buffering, timing stays accurate
+5. **Structured logs** - Machine-parseable format enables automated pattern detection
+6. **GDB on-demand** - Deep register/memory inspection without modifying code
 
-### Variable Bandwidth Budget Approach
+### Logging Bandwidth Strategy
 
 Instead of thinking "add minimal debug code," think in **data throughput budgets**:
 
 ```
-Available RTT bandwidth: 1-10 MB/s depending on JTAG clock
+Available UART bandwidth @ 115200 baud: ~14 KB/s (safe estimate)
+Available UART bandwidth @ 921600 baud: ~100 KB/s (high-speed)
 
-Typical variable sizes @ 100 Hz:
-- 4-byte integer: ~4 bytes per log
-- defmt overhead: ~10-20 bytes per message
-- Total per variable: ~15-25 bytes
+Typical variable sizes @ 10 Hz logging:
+- Simple counter: ~20 bytes ("counter=1234\n")
+- Multi-value log: ~60 bytes ("i2c: rd=5 wr=3 err=0 state=idle\n")
 
-Example: 100 variables × 25 bytes × 100 Hz = 250 KB/s
-         This is 0.25% of RTT capacity on a 100 MB/s system
-         Plenty of headroom for multiple channels and variable data
+Example @ 115200 baud:
+  20 variables × 30 bytes/line × 10 Hz = 6 KB/s
+  This is ~40% of bandwidth, plenty of headroom
+
+Example @ 921600 baud:
+  100 variables × 30 bytes/line × 10 Hz = 30 KB/s
+  This is ~30% of bandwidth, still safe
 ```
 
 ### When to Use This Strategy
@@ -298,22 +312,20 @@ Example: 100 variables × 25 bytes × 100 Hz = 250 KB/s
 - System behavior is complex or non-obvious
 - Multiple subsystems interact (I2C + GPIO + ISR + main loop)
 - You're unfamiliar with the code
-- Timing-sensitive bugs (RTT's non-blocking nature is critical)
+- Timing-sensitive bugs (UART buffering critical)
 - Quick iteration needed (Claude analyzing logs is fast)
 
 ❌ **Minimize logging only when:**
-- Memory severely constrained (< 50 KB available for debug infrastructure)
+- UART bandwidth saturated (switch to event counters + periodic dumps)
 - Production deployment (then use minimal counters for telemetry)
 - Proven simple bugs (single-subsystem issues)
 
-### The shift: From "minimal overhead" to "maximum insight"
+### The Shift: From "Minimal Overhead" to "Maximum Insight"
 
 Traditional embedded development: "We need to log carefully to avoid overhead"
-RTT-driven development: "We have 1-10 MB/s available, let's use it all"
+Modern development: "We have 14-100 KB/s available via UART, let's instrument everything"
 
-## Embedded Debugging Strategies for RTT
-
-When using RTT (Real-Time Transfer) for autonomous firmware development and debugging, apply these battle-tested patterns:
+## Practical Debugging Strategies with UART + GDB
 
 ### Event Counters for High-Frequency Debugging
 
@@ -330,8 +342,8 @@ static SENSOR_READS: AtomicU32 = AtomicU32::new(0);
 // In interrupt handler or hot path:
 I2C_ERRORS.fetch_add(1, Ordering::Relaxed);  // 5-10 CPU cycles, non-blocking
 
-// Log periodically (e.g., every 100ms):
-defmt::info!("i2c_errors={}, interrupts={}, reads={}",
+// Log periodically via UART (e.g., every 100ms):
+println!("stats: i2c_err={} gpio_int={} sensor_rd={}",
     I2C_ERRORS.load(Ordering::Relaxed),
     GPIO_INTERRUPTS.load(Ordering::Relaxed),
     SENSOR_READS.load(Ordering::Relaxed)
@@ -341,166 +353,123 @@ defmt::info!("i2c_errors={}, interrupts={}, reads={}",
 **Why this works:**
 - Atomic operations use hardware compare-and-swap, not locks
 - `Relaxed` ordering = no synchronization overhead
-- Periodic logging prevents RTT saturation
+- Periodic logging prevents UART buffer overflow
 - Counters survive firmware resets
 
-### Bit Array State Tracking
+### GDB Memory/Register Inspection
 
-For tracking many boolean states (e.g., 10K+ GPIO pin states), use bit arrays instead of byte arrays:
-
-```rust
-// Instead of: let mut states: [bool; 10000] = [false; 10000];  (10 KB)
-// Use a bit array (1.25 KB):
-
-let mut state_bits = [0u32; 312];  // 312 * 32 = 10,000 bits = 1,250 bytes
-
-// Set bit: state_bits[pin_id / 32] |= 1 << (pin_id % 32);
-// Clear bit: state_bits[pin_id / 32] &= !(1 << (pin_id % 32));
-// Read bit: (state_bits[pin_id / 32] >> (pin_id % 32)) & 1
-```
-
-**RTT streaming:**
-```rust
-// Stream as 32-bit words for efficient transfer
-for word in &state_bits {
-    defmt::info!("state_word: bits={:032b}", word);
-}
-// 10,000 bits → 312 defmt messages → ~2-3 KB RTT bandwidth
-```
-
-### Memory Budget Guidelines
-
-Allocate debug infrastructure based on available ESP32-C6 SRAM (512 KB total, ~400-450 KB available to user code):
-
-| Debug Level | Allocation | Use Cases |
-|-------------|-----------|-----------|
-| **Minimal** | 10-20 KB | Single driver, basic counters, 5-10 debug variables |
-| **Standard** | 50-80 KB | Multi-driver system, state tracking, event buffers |
-| **Extensive** | 100-150 KB | Full system observability, large ring buffers, state arrays |
-| **Available for App** | 250-400 KB | Remaining SRAM for actual firmware logic |
-
-**Allocation strategy:**
-```rust
-// Track actual usage
-const DEBUG_BUFFER_SIZE: usize = 64 * 1024;  // 64 KB for RTT ring buffers
-const STATE_ARRAY_SIZE: usize = 16 * 1024;   // 16 KB for state tracking
-const COUNTER_SIZE: usize = 4 * 1024;        // 4 KB for atomic counters
-const AVAILABLE_FOR_APP: usize = 512_000 - DEBUG_BUFFER_SIZE - STATE_ARRAY_SIZE - COUNTER_SIZE;
-// Available for app: ~428 KB
-```
-
-### RTT Bandwidth Planning
-
-RTT throughput depends on JTAG clock frequency. Plan logging accordingly:
-
-| JTAG Clock | Throughput | Recommended Load |
-|-----------|-----------|-----------------|
-| **1 MHz** | 250-500 KB/s | 5 variables @ 100 Hz |
-| **4 MHz** | 1-2 MB/s | 10-15 variables @ 100 Hz |
-| **10 MHz** | 3-5 MB/s | 20-30 variables @ 100 Hz |
-
-**Saturation limits:**
-- **Safe zone:** 1-2 MB/s (leaves headroom, won't drop frames)
-- **Good zone:** 2-4 MB/s (acceptable, occasional frame loss tolerable)
-- **Saturation:** 5+ MB/s (frame loss likely, debugging degrades)
-
-**Rule of thumb:** `throughput ≈ (variables × bytes_per_msg × sample_rate_hz) / 1_000_000`
-
-```rust
-// Example: 15 sensor readings, 8 bytes each, 100 Hz sample rate
-// Throughput = (15 × 8 × 100) / 1_000_000 = 0.012 MB/s (very safe)
-
-// Bad example: 50 variables, 32 bytes each, 1000 Hz
-// Throughput = (50 × 32 × 1000) / 1_000_000 = 1.6 MB/s (saturating)
-```
-
-### UART vs RTT Decision Matrix
-
-Choose based on development phase and requirements:
-
-| Factor | UART | RTT |
-|--------|------|-----|
-| **Throughput** | 14-250 KB/s | 1-10 MB/s |
-| **Blocking** | Yes (blocking write) | No (ring buffer) |
-| **GPIO Overhead** | Uses pins | Built-in JTAG |
-| **Hardware Needed** | USB-Serial | JTAG probe |
-| **Best For** | Production logging, simple debugging | Development, autonomous testing, high-speed capture |
-| **Cost** | Cheap (~$5) | Moderate (~$30-50) |
-
-**Recommendation:**
-- **Development (L08-L09):** RTT + defmt for non-blocking, structured logging
-- **Production (L10+):** UART + esp-println for power efficiency, external logging
-
-### Arbitrary Memory/Register Access
-
-Use probe-rs or GDB to inspect and modify memory at runtime without adding debug code:
+Use GDB to inspect and modify memory at runtime without adding debug code:
 
 ```bash
-# With probe-rs, you can query any variable from ELF symbols:
-probe-rs run --chip esp32c6 --probe <probe-id> target/*/debug/firmware
+# Start GDB session with ESP32-C6
+espflash monitor --chip esp32c6
 
-# While running, attach GDB:
-gdb target/*/debug/firmware
-(gdb) target remote :3333  # OpenOCD port
+# While running, attach GDB in another terminal:
+riscv32-esp-elf-gdb target/riscv32imac-unknown-none-elf/debug/main
+(gdb) target remote :3333  # Connect to OpenOCD
 (gdb) print my_global_var
 (gdb) set my_global_var = 42
 (gdb) continue
 ```
 
 **Best practices:**
-1. **Use ELF map file** to find variable addresses:
+
+1. **Use ELF symbols** to find variable addresses:
    ```bash
-   cargo build && nm -n target/riscv32imac-unknown-none-elf/debug/firmware | grep my_var
+   riscv32-esp-elf-nm -n target/riscv32imac-unknown-none-elf/debug/main | grep my_var
    ```
 
 2. **Read peripheral registers directly:**
    ```bash
    # Query GPIO state without adding logging code:
    (gdb) x/1xw 0x60004000  # Read GPIO register
+   (gdb) x/16x 0x60013000  # Read UART peripheral registers
    ```
 
 3. **Set conditional breakpoints on hardware state:**
    ```bash
    (gdb) break main.rs:42 if sensor_value > 1000
+   (gdb) watch i2c_error_count  # Break when variable changes
    ```
 
-### Practical Debugging Workflow for Autonomous Development
+### UART Logging Patterns
 
-**Maximum Observability Strategy:**
-Start with comprehensive logging of all relevant variables. RTT's non-blocking nature and 1-10 MB/s throughput enable logging 50-500+ variables @ 100 Hz without affecting timing.
+**Structured logging for pattern detection:**
 
-**Step-by-step:**
-1. **Log everything relevant** - All peripheral state, sensor data, FSM state, error flags
-2. **Structured defmt format** - Machine-parseable logs enable instant pattern detection
-3. **Sample at 100 Hz** - Fast enough to catch all behavior, slow enough to avoid saturation
-4. **Claude Code analyzes patterns** - Correlations reveal root cause immediately
-5. **Minimal iterations** - Usually fixed in 1-2 debug cycles vs many with minimal logging
+```rust
+use esp_println::println;
+
+// Simple counter
+println!("counter={}", iteration);
+
+// Multi-value state
+println!("i2c: rd={} wr={} err={} state={}", reads, writes, errors, state);
+
+// Sensor data
+println!("sensors: temp={} humidity={} pressure={}", temp, hum, press);
+
+// Error tracking
+println!("errors: i2c_timeout={} crc={} overflow={}", i2c_to, crc_err, ovf);
+```
+
+**Why structured format matters:**
+- Easy to parse with regex or scripts
+- Claude can analyze patterns quickly
+- Correlations jump out (e.g., "i2c_timeout spikes when temp > 80°C")
+
+### Maximum Observability Workflow
+
+**Step-by-step debugging approach:**
+
+1. **Instrument everything** - Add UART logging for all key variables
+2. **Run and capture** - Use `python3 read_uart.py <port> 30` to capture 30 seconds
+3. **Analyze patterns** - Look for correlations, spikes, state changes
+4. **Deep dive with GDB** - Inspect specific registers/memory when needed
+5. **Iterate** - Fix issues, re-test with same instrumentation
 
 **Example: Debugging I2C driver autonomously**
+
 ```rust
-// Log all I2C and system state every 10ms
-defmt::info!("i2c: status=0x{:04x} writes={} reads={} errors={} scl={} sda={} fifo={} state={}",
-    i2c_status, i2c_writes, i2c_reads, i2c_errors, scl_pin, sda_pin, fifo_level, fsm_state
+// UART logging for high-level state (every 100ms)
+println!("i2c: status=0x{:04x} wr={} rd={} err={} scl={} sda={} state={}",
+    i2c_status_reg, writes, reads, errors, scl_state, sda_state, fsm_state
 );
 
-// Also log related sensor data
-defmt::info!("sensors: accel_x={} accel_y={} accel_z={} temp={} ready={}",
+println!("sensor: x={} y={} z={} temp={} ready={}",
     accel_x, accel_y, accel_z, temperature, sensor_ready
 );
 ```
 
-**Why this works for autonomous debugging:**
-- Claude sees all state changes instantly
-- Correlations appear naturally (button → i2c_error → sensor_fail)
-- No guessing which variable to inspect next
-- RTT non-blocking means timing is accurate (not masked by UART waits)
-- defmt structure lets Claude write regex parsers to extract patterns
+**GDB for deep inspection when issue found:**
+```bash
+# Break when I2C error detected
+(gdb) break i2c_error_handler
+(gdb) continue
+# Now inspect peripheral state
+(gdb) print i2c->status
+(gdb) x/16x 0x60013000  # Dump I2C peripheral registers
+(gdb) print sensor_state
+```
 
-**Bottleneck considerations:**
-- JTAG bandwidth: 10+ MB/s (rarely the limit)
-- probe-rs parsing: ~1-10 MB/s (likely bottleneck)
-- USB 2.0: 12 Mbps = 1.5 MB/s (may limit USB-based probes)
-- Test actual limits with your hardware to find max sustainable variables
+**Why this works for autonomous debugging:**
+- Claude analyzes UART logs to find patterns
+- Correlations appear naturally (e.g., "button press → i2c_error → sensor_fail")
+- No guessing which variable to inspect
+- UART buffering keeps timing accurate
+- GDB provides on-demand deep inspection without code changes
+
+### Memory Budget Guidelines
+
+ESP32-C6 has 512 KB SRAM total, ~400-450 KB available to user code:
+
+| Usage | Allocation | Notes |
+|-------|-----------|-------|
+| **UART TX Buffer** | 1-4 KB | esp-println default buffer |
+| **Event Counters** | 1-2 KB | Atomic counters for ISRs |
+| **State Arrays** | 5-20 KB | Bit arrays for GPIO states, etc. |
+| **Available for App** | 350-440 KB | Remaining SRAM for firmware |
+
+**Keep it simple:** UART logging uses minimal memory compared to complex ring buffers
 
 ---
 
@@ -520,30 +489,26 @@ defmt::info!("sensors: accel_x={} accel_y={} accel_z={} temp={} ready={}",
 
 Custom slash commands are stored in `.claude/commands/`:
 
-### Lesson Testing
-- **`/test-lesson <number> [mode]`** - Unified hardware testing for any lesson
+### Hardware Testing Commands
+
+- **`/test-uart-pins <tx> <rx> [duration]`** - Test UART GPIO pins on hardware
+  - Examples: `/test-uart-pins 23 15 5`, `/test-uart-pins 16 17 3`
+  - Creates minimal test firmware, builds, flashes, monitors output
+  - Reports success/failure with troubleshooting hints
+  - Auto-cleanup of temporary files
+
+- **`/setup-hardware-lesson <number> <name>`** - Create new hardware lesson
+  - Examples: `/setup-hardware-lesson 10 i2c-sensors`
+  - Generates complete lesson structure with templates
+  - Includes UART test binary, build files, minimal README
+  - Pre-configured for esp-hal 1.0.0
+
+- **`/test-lesson <number> [mode]`** - Unified hardware testing for lessons
   - Examples: `/test-lesson 07`, `/test-lesson 08 full`
   - Modes: `quick` (default, 3-5 min) or `full` (10-20 min)
   - Auto-detects hardware (USB ports, JTAG probes)
   - Reads lesson-specific `TEST.md` for test procedures
   - Generates comprehensive test reports
-
-Each lesson has a `TEST.md` specification that documents:
-- Hardware setup and wiring
-- Automated tests (build, flash, infrastructure)
-- Interactive tests (manual verification)
-- Expected outputs and troubleshooting
-
-### RTT Debugging
-- **`/rtt [subcommand]`** - RTT (Real-Time Transfer) debugging and validation tools
-  - `tutorial [topic]` - Learn RTT best practices interactively
-  - `sweep [options]` - Performance characterization for your device
-  - `validate [file]` - Automated firmware testing on hardware
-  - `analyze [log]` - Log analysis and parsing
-  - `tools` - Reference and system diagnostics
-  - `guide` - Open full RTT Mastery reference
-
-See `.claude/rtt-guide.md` for complete RTT reference documentation.
 
 ---
 
@@ -625,51 +590,49 @@ If you don't know which pins to use:
 
 ---
 
-## esp-hal 1.0.0 API Patterns
+## esp-hal 1.0.0 API and Documentation
 
 **IMPORTANT: esp-hal 1.0.0 has breaking changes from pre-1.0 versions.**
 
-### UART Initialization
+### Always Fetch Latest Documentation
 
-❌ **OLD (pre-1.0) - Don't use:**
-```rust
-use esp_hal::{gpio::Io, uart::{Config, Uart}};
+Instead of relying on hardcoded examples in this file, **always fetch the latest API documentation** when working with esp-hal:
 
-let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
-let uart = Uart::new_with_config(
-    peripherals.UART1,
-    Config::default().with_baudrate(115200),
-    io.pins.gpio23,
-    io.pins.gpio15,
-).unwrap();
+```
+Use WebFetch tool to get current documentation:
+- https://docs.esp-rs.org/esp-hal/esp-hal/
+- https://github.com/esp-rs/esp-hal/blob/main/CHANGELOG.md (for breaking changes)
+- https://github.com/esp-rs/esp-hal/tree/main/examples (for working examples)
 ```
 
-✅ **NEW (1.0.0+) - Use this:**
+### Quick Reference: Common Patterns
+
+**UART initialization (esp-hal 1.0.0+):**
 ```rust
-use esp_hal::{
-    delay::Delay,
-    main,
-    uart::{Config as UartConfig, Uart},
-};
+// Fetch latest syntax from:
+// https://docs.esp-rs.org/esp-hal/esp-hal/uart/index.html
+
+// Basic pattern (verify against docs):
+use esp_hal::uart::{Config as UartConfig, Uart};
 
 let mut uart = Uart::new(peripherals.UART1, UartConfig::default())
-    .expect("Failed to init UART")
     .with_tx(peripherals.GPIO23)
     .with_rx(peripherals.GPIO15);
-
-// Writing to UART
-uart.write(b"Hello\n").ok();
 ```
 
-### DMA Support
+**When in doubt:**
+1. Check existing working code in `lessons/08-uart-gdb-tandem/src/bin/`
+2. Use WebFetch to read latest esp-hal docs
+3. Search esp-hal examples: https://github.com/esp-rs/esp-hal/tree/main/examples
 
-**Status:** DMA APIs exist but are complex and not yet documented in simple lessons.
+### Migration from Pre-1.0
 
-**Recommendation:** Start with blocking UART (shown above) for initial lessons. Add DMA as advanced topic later.
+If you encounter old code patterns:
+- `Io::new()` → No longer needed, use `peripherals.GPION` directly
+- `io.pins.gpioN` → `peripherals.GPION`
+- `Uart::new_with_config()` → `Uart::new().with_tx().with_rx()`
 
-**Where to find examples:**
-- Official esp-hal repo: https://github.com/esp-rs/esp-hal/tree/main/examples
-- Check existing lessons: `grep -r "with_dma" lessons/*/src/`
+**Don't trust pre-1.0 examples** - Always verify against latest docs
 
 ---
 
@@ -760,6 +723,55 @@ ls /dev/ttyUSB*         # FTDI UART
 
 ---
 
+## Hardware Debugging Infrastructure
+
+This project includes comprehensive hardware testing tools to prevent conversation freezing and streamline development:
+
+### Templates (.claude/templates/)
+
+- **`uart_test_minimal.rs`** - Minimal 73-line UART test firmware
+  - Single-purpose: verify GPIO pins work
+  - Clear pin configuration section
+  - esp-hal 1.0.0 API
+  - Use this FIRST before writing complex firmware
+
+- **`read_uart.py`** - Safe UART reader with guaranteed timeout
+  - Time-bounded execution (default 3-5 seconds)
+  - No hanging, clean termination
+  - Cross-platform (macOS, Linux, Windows)
+  - Usage: `python3 read_uart.py /dev/cu.usbserial* 5`
+
+### Scripts (scripts/)
+
+- **`find-esp32-ports.sh`** - Automatic device discovery
+  - Detects ESP32 USB-JTAG and FTDI UART ports
+  - Exports `$USB_CDC_PORT` and `$FTDI_PORT`
+  - Cross-platform (macOS/Linux)
+  - Usage: `source scripts/find-esp32-ports.sh`
+
+- **`test-uart-pins.sh`** - Automated GPIO pin verification
+  - Creates temp project, builds, flashes, monitors
+  - Reports success/failure with troubleshooting
+  - Auto-cleanup
+  - Usage: `./scripts/test-uart-pins.sh 23 15 5`
+
+### Workflow Integration
+
+**Before writing any hardware-interfacing code:**
+
+1. Verify pins: `./scripts/test-uart-pins.sh 23 15 5`
+2. If successful, copy template: `cp .claude/templates/uart_test_minimal.rs src/bin/`
+3. Build on proven minimal test
+4. Test after each feature addition
+
+**Never:**
+- Write 200+ lines before testing on hardware
+- Assume GPIO pins without verification
+- Use blocking serial commands (`cat`, `espflash monitor`)
+- Hardcode serial port paths
+
+---
+
 **Last Updated:** 2025-11-14
-**Current Work:** Lesson 08 (UART + GDB Tandem Debugging)
-**Next:** Hardware debugging infrastructure improvements
+**Current Work:** Lesson 08 Complete (UART + GDB Tandem Debugging)
+**Infrastructure:** Hardware testing toolkit with templates, scripts, slash commands
