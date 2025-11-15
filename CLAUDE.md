@@ -84,14 +84,68 @@ lessons/{NN}-{name}/
 
 ---
 
-## Testing Approach
+## Hardware Testing Approach
 
-1. **Build:** `cargo build --release`
-2. **Flash:** `cargo run --release`
-3. **Test:** Manual hardware validation
-4. **Iterate:** Fix issues, re-test
+### CRITICAL: Port Detection is NOT the Problem
 
-No massive test plans until code works on hardware.
+**The ESP32-C6 USB-JTAG port is `/dev/cu.usbmodem1101` (or similar usbmodem device).**
+
+If you can't see it with `ls /dev/cu.*`:
+1. It's physically unplugged
+2. You're looking at the wrong USB port (use the ESP32's built-in USB, not external adapters)
+3. The device is in a bad state (try hard reset: unplug, hold BOOT, plug in, release BOOT)
+
+**DO NOT** waste time trying different ports or debugging USB - if probe-rs can see it (`probe-rs list`), the port is working!
+
+### Hardware Testing Workflow
+
+1. **Detect device:**
+```bash
+ls /dev/cu.usbmodem*  # Should show /dev/cu.usbmodem1101 or similar
+probe-rs list         # Should show "ESP JTAG -- 303a:1001..."
+```
+
+2. **Build firmware:**
+```bash
+cargo build --release
+```
+
+3. **Flash using probe-rs (RECOMMENDED - works without TTY):**
+```bash
+probe-rs run --chip esp32c6 target/riscv32imac-unknown-none-elf/release/main
+```
+
+4. **Alternative - Flash using espflash (requires manual port selection):**
+```bash
+cargo run --release  # You'll be prompted to select port interactively
+```
+
+5. **Test GPIO with probe-rs (no firmware needed!):**
+```bash
+# Enable GPIO12 as output
+probe-rs write b32 --chip esp32c6 0x60091024 0x1000
+
+# LED ON
+probe-rs write b32 --chip esp32c6 0x60091008 0x1000
+
+# LED OFF
+probe-rs write b32 --chip esp32c6 0x6009100C 0x1000
+```
+
+### Common Pitfalls (AVOID THESE)
+
+❌ **Don't assume espflash will work without TTY** - It requires interactive terminal for port selection
+❌ **Don't try to automate espflash port selection** - Use probe-rs instead
+❌ **Don't waste time with USB port detection** - If probe-rs sees it, it works
+❌ **Don't flash via UART adapter** - Use the ESP32's built-in USB-JTAG (probe-rs compatible)
+
+### When Testing Fails
+
+If you can't get hardware working:
+1. **Check probe-rs:** `probe-rs list` should show the device
+2. **Try manual flashing:** Run `cargo run --release` in your actual terminal (not through me)
+3. **Test with probe-rs GPIO:** Use the direct register writes above to verify LED works
+4. **Check git history:** Working examples are on branch `lesson-01` (proven GDB-only blinky)
 
 ---
 
