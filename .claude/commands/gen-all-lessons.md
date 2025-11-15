@@ -109,12 +109,133 @@ Telemetry:
 
 ---
 
+## Repository Refactoring Workflow
+
+**IMPORTANT:** This command performs a complete curriculum refactoring. It will:
+1. Tag current main for rollback safety
+2. Archive old lessons to `archive/`
+3. Generate new lessons 01-05 with progressive infrastructure
+4. Test all lessons on hardware
+5. Create lesson branches with progressive commits
+
+**Existing lesson branches** (will be reused):
+- `lesson-01` - Can be updated with new Lesson 01 content
+- `lesson-01-with-gpio9-input` - Variant branch
+- `lesson-02` - Can be updated with new Lesson 02 content
+
+---
+
+## Step 0: Repository Refactoring Setup
+
+### 0.1: Tag Current State
+
+Create a snapshot tag before refactoring for rollback safety:
+
+```bash
+# Create timestamp tag
+TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+TAG_NAME="pre-refactor-$TIMESTAMP"
+
+git tag -a "$TAG_NAME" -m "Snapshot before esp-hal 1.0.0 curriculum refactoring
+
+Preserves lessons 01-08 before generating new progressive curriculum.
+Old lessons will be archived to archive/lessons-old-*/
+
+To rollback: git checkout $TAG_NAME"
+
+git push origin "$TAG_NAME"
+echo "✓ Created tag: $TAG_NAME"
+echo "  Rollback: git checkout $TAG_NAME"
+```
+
+### 0.2: Archive Old Lessons
+
+Move existing lessons to timestamped archive directory:
+
+```bash
+# Create archive with timestamp
+ARCHIVE_DIR="archive/lessons-old-$(date +%Y%m%d)"
+mkdir -p "$ARCHIVE_DIR"
+
+# Move existing lessons
+if [ -d "lessons" ]; then
+    mv lessons/ "$ARCHIVE_DIR/"
+    git add "$ARCHIVE_DIR"
+    git commit -m "chore: Archive old lessons before refactoring
+
+Moved lessons 01-08 to $ARCHIVE_DIR/ before
+generating new esp-hal 1.0.0 + GDB curriculum.
+
+Old lessons preserved for reference.
+Snapshot tag: $TAG_NAME"
+    echo "✓ Archived lessons to $ARCHIVE_DIR/"
+else
+    echo "⚠ No lessons/ directory found, skipping archive"
+fi
+```
+
+### 0.3: Verify Clean State
+
+Confirm repository is ready for new curriculum generation:
+
+```bash
+# Check git status
+if [ -n "$(git status --porcelain)" ]; then
+    echo "ERROR: Working directory not clean after archiving"
+    git status
+    exit 1
+fi
+echo "✓ Working directory clean"
+
+# Verify lessons/ removed
+if [ -d "lessons" ]; then
+    echo "ERROR: lessons/ directory still exists"
+    exit 1
+fi
+echo "✓ Ready for new lessons generation"
+
+# Show archive location
+echo "✓ Old lessons archived to: $ARCHIVE_DIR/"
+ls -la "$ARCHIVE_DIR/lessons/" | head -10
+```
+
+### 0.4: Verify Hardware Availability
+
+**CRITICAL:** Confirm all hardware is available before starting 18-30 hour curriculum generation.
+
+Required hardware:
+- ✅ ESP32-C6-DevKit-C (USB-C cable for USB-JTAG)
+- ✅ MPU6050 I2C sensor + jumper wires
+- ✅ FTDI UART adapter
+- ✅ LED + 220Ω resistor
+- ✅ Breadboard
+
+**Interactive check:**
+```bash
+echo "Do you have all required hardware ready? (y/n)"
+echo "  - ESP32-C6-DevKit-C with USB-C cable"
+echo "  - MPU6050 I2C sensor + jumper wires"
+echo "  - FTDI UART adapter"
+echo "  - LED + 220Ω resistor + breadboard"
+read -p "> " HARDWARE_READY
+
+if [ "$HARDWARE_READY" != "y" ]; then
+    echo "ERROR: Get all hardware before starting curriculum generation"
+    exit 1
+fi
+echo "✓ Hardware confirmed ready"
+```
+
+---
+
 ## Pre-Flight Checklist
 
 ### Repository State
 ```bash
 git branch --show-current  # Should show "main"
 git status  # Should show "nothing to commit, working tree clean"
+git tag | grep pre-refactor  # Should show snapshot tag
+ls archive/lessons-old-*/  # Should show archived lessons
 ```
 
 ### Hardware Available
@@ -1071,46 +1192,221 @@ TestPostureMonitor()
 
 ---
 
-## Post-Lesson Workflow
+## Step 6: Comprehensive Hardware Testing
 
-After each lesson:
-
-### 1. Merge PR to Main
+After all 5 lessons are generated and committed to main, run comprehensive validation:
 
 ```bash
-gh pr view <PR-number>
-gh pr merge <PR-number> --squash
-git checkout main
-git pull origin main
+# Use the dedicated testing command
+/test-all-lessons
 ```
 
-### 2. Update Progress Tracker
+This command will:
+- ✅ Build each lesson in sequence
+- ✅ Flash to hardware via espflash
+- ✅ Capture UART output for validation
+- ✅ Check expected outputs match success criteria
+- ✅ Validate CLI progression (each lesson extends previous)
+- ✅ Generate comprehensive test report
+
+**Success criteria:**
+- [ ] All 5 lessons build without warnings
+- [ ] All 5 lessons flash successfully
+- [ ] UART output detected for lessons 02-05
+- [ ] CLI commands present in expected lessons
+- [ ] Progressive CLI validated (Lesson N includes all commands from Lesson N-1)
+- [ ] Test report generated with all PASS results
+
+**See:** `.claude/commands/test-all-lessons.md` for detailed testing workflow
+
+**Time estimate:** 30-60 minutes for full curriculum validation
+
+---
+
+## Step 7: Create Lesson Branches
+
+After all lessons are working on main and tests pass, create progressive lesson branches for the tutorial workflow.
+
+### Existing Lesson Branches
+
+These branches already exist and can be reused:
+
+| Branch | Status | Recommendation |
+|--------|--------|----------------|
+| `lesson-01` | Exists | Update with new Lesson 01 content |
+| `lesson-01-with-gpio9-input` | Exists | Keep as variant or delete |
+| `lesson-02` | Exists | Update with new Lesson 02 content |
+
+**Strategy:** Reuse `lesson-01` and `lesson-02`, create new `lesson-03`, `lesson-04`, `lesson-05`
+
+### Branch Creation Workflow
+
+**Option A: Update Existing Branches (Recommended)**
+
+```bash
+# Backup existing branches first
+for branch in lesson-01 lesson-02; do
+    git checkout "$branch"
+    git tag "backup-${branch}-$(date +%Y%m%d)"
+    git push origin "backup-${branch}-$(date +%Y%m%d)"
+done
+
+# Update with new content
+git checkout main
+git checkout -B lesson-01  # Reset to main
+git push --force-with-lease origin lesson-01
+
+git checkout main
+git checkout -B lesson-02
+git push --force-with-lease origin lesson-02
+```
+
+**Option B: Create Fresh Branches**
+
+```bash
+# Create clean branches for all 5 lessons
+for lesson in 01 02 03 04 05; do
+    git checkout -b "lesson-new-${lesson}" main
+    git push -u origin "lesson-new-${lesson}"
+done
+
+# Later: migrate content to original branch names
+```
+
+### Progressive Commits on Branches
+
+Each lesson branch should have progressive commits matching the lesson plan:
+
+**Lesson 01 (4 commits):**
+1. Broken GPIO init (Bug: Missing GPIO enable)
+2. Working button polling (Bug: No debounce)
+3. LED control functions
+4. GDB-based register validation
+
+**Lesson 02 (6 commits):**
+1. Basic UART TX (Bug: Blocking writes)
+2. CLI parser (Bug: Buffer overflow)
+3. GPIO control via CLI
+4. Streaming mode (Bug: DMA misconfiguration)
+5. Mode switching via GDB
+6. DMA optimization + error handling
+
+**Lesson 03 (6 commits):**
+1. PWM init (Bug: Wrong frequency)
+2. PWM duty cycle control + CLI
+3. Neopixel driver (Bug: Wrong color order)
+4. Neopixel flickering fix (Bug: RMT timing)
+5. Python GDB script for color testing
+6. Unified streaming telemetry
+
+**Lesson 04 (7 commits):**
+1. I2C init + device scan (Bug: Wrong I2C speed)
+2. Read WHO_AM_I register
+3. Read accel/gyro data (Bug: Axis swap)
+4. Button state machine
+5. Calibration mode (Bug: Overflow in averaging)
+6. I2C error handling (Bug: No timeout)
+7. Tracepoints for performance profiling
+
+**Lesson 05 (8 commits):**
+1. Multi-peripheral init
+2. Tilt calculation (Bug: Wrong axis)
+3. Nested state machine (Bug: Backward transitions missing)
+4. Button calibration (Bug: Offsets not applied)
+5. LED blink rate control
+6. Sleep mode (Bug: Power not reduced)
+7. Race condition fix (Bug: Button ISR vs main loop)
+8. Statistical anomaly detection (Bug: I2C error spikes)
+
+**See:** Each lesson's README for commit-by-commit breakdown and GDB debugging workflows.
+
+### Creating Progressive Commits
+
+**Strategy:** Use `git commit --amend` and `git rebase -i` to create clean progressive history:
+
+```bash
+# Example for Lesson 01
+git checkout lesson-01
+
+# Commit 1: Broken GPIO init
+git add lessons/01-*/src/bin/main.rs  # Broken version
+git commit -m "feat(lesson-01): Add GPIO init (broken - missing enable)"
+
+# Commit 2: Fix with debounce bug
+git add lessons/01-*/src/bin/main.rs  # Fixed enable, but no debounce
+git commit -m "fix(lesson-01): Enable GPIO peripheral, add button polling (broken - no debounce)"
+
+# Commit 3: Add LED functions
+git add lessons/01-*/src/bin/main.rs  # Add led_on/off/toggle
+git commit -m "feat(lesson-01): Add LED control functions (callable from GDB)"
+
+# Commit 4: Final with register validation
+git add lessons/01-*/src/bin/main.rs lessons/01-*/README.md
+git commit -m "feat(lesson-01): Add GDB register validation, complete lesson
+
+- Hardware-based unit testing pattern
+- GDB validates GPIO_OUT_REG after LED operations
+- README documents all GDB commands used"
+```
+
+**Push branches:**
+```bash
+git push --force-with-lease origin lesson-01
+git push --force-with-lease origin lesson-02
+git push -u origin lesson-03
+git push -u origin lesson-04
+git push -u origin lesson-05
+```
+
+---
+
+## Post-Lesson Workflow
+
+After lesson branches are created:
+
+### 1. Update Progress Tracker
 
 ```markdown
 ## esp-hal 1.0.0 + Claude Code Curriculum Progress
 
 - [x] Lesson 01: GPIO Basics + GDB Fundamentals (⭐⭐☆☆☆)
 - [x] Lesson 02: UART CLI + Streaming Infrastructure (⭐⭐⭐☆☆)
-- [ ] Lesson 03: PWM + Neopixel Drivers (⭐⭐⭐☆☆)
-- [ ] Lesson 04: MPU6050 + State Machine (⭐⭐⭐⭐☆)
-- [ ] Lesson 05: Posture Monitor Device (⭐⭐⭐⭐⭐)
+- [x] Lesson 03: PWM + Neopixel Drivers (⭐⭐⭐☆☆)
+- [x] Lesson 04: MPU6050 + State Machine (⭐⭐⭐⭐☆)
+- [x] Lesson 05: Posture Monitor Device (⭐⭐⭐⭐⭐)
 ```
 
-### 3. Hardware Validation Checklist
+### 2. Final Hardware Validation
 
-Each lesson must be tested on real hardware:
-- Build without warnings
-- Flash successfully
-- All CLI commands work
-- Hardware behaves as expected
-- GDB techniques work as documented
-- UART telemetry parseable
+Each lesson branch must be tested on real hardware:
+- [ ] Build without warnings
+- [ ] Flash successfully
+- [ ] All CLI commands work
+- [ ] Hardware behaves as expected
+- [ ] GDB techniques work as documented
+- [ ] UART telemetry parseable
+- [ ] Progressive commits tell a clear story
 
-### 4. Clean Up
+### 3. Documentation Review
+
+Ensure each lesson has:
+- [ ] README with wiring diagrams
+- [ ] GDB debugging workflows documented
+- [ ] Intentional bugs explained
+- [ ] Success criteria checklist
+- [ ] Expected UART output examples
+
+### 4. Archive Cleanup (Optional)
+
+Old lessons are preserved in `archive/lessons-old-*/` for reference:
 
 ```bash
-git branch -d lesson-{NN}-{name}
-git push origin --delete lesson-{NN}-{name}
+# List archived content
+ls -la archive/
+
+# Rollback if needed (use snapshot tag)
+git tag | grep pre-refactor
+git checkout <tag-name>
 ```
 
 ---
